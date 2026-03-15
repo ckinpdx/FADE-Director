@@ -24,7 +24,7 @@ All inference is local. No cloud services required.
 - The pipeline runs one model at a time via llama-swap — Omni-7B-Q4 ≈ 5GB, Qwen3.5-35B-Q4 ≈ 22GB, ComfyUI models load separately
 
 ### Software
-- [uv](https://github.com/astral-sh/uv) — Python environment manager (used by `run_dev.bat`)
+- Python 3.11+
 - Node.js 18+
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI) running at `http://127.0.0.1:8188`
 - [llama-swap](https://github.com/mostlygeek/llama-swap) running at `http://127.0.0.1:8000` (requires llama-server compiled from source for Omni `--mmproj` support) — see `llama-swap-config.example.yaml` for a reference config
@@ -84,13 +84,15 @@ All inference is local. No cloud services required.
 
 ## Installation
 
-**Prerequisites:** [uv](https://github.com/astral-sh/uv) and Node.js must be installed. Everything else is handled automatically.
+**Prerequisites:** Python 3.11+ and Node.js must be installed. Everything else is handled automatically.
 
 1. Clone the repo
 2. Copy `.env.example` to `.env` and fill in your paths
 3. Run `run_dev.bat`
 
-`run_dev.bat` creates an isolated Python environment via `uv`, installs all Python dependencies, builds the frontend (running `npm install` automatically on first run), and starts the backend. No manual `pip install` or `npm install` needed.
+`run_dev.bat` creates an isolated Python 3.11 virtual environment, installs PyTorch with CUDA 12.8 support (for Demucs GPU acceleration), installs all other Python dependencies, builds the frontend (running `npm install` automatically on first run), and starts the backend. No manual `pip install` or `npm install` needed.
+
+> **CPU fallback:** If you don't have an NVIDIA GPU, Demucs will still run on CPU — just slower. Delete the `.venv` folder if it was created with GPU support and you need to switch, or vice versa.
 
 All ComfyUI workflow files and node maps ship with the repo in `backend/comfyui/workflows/` — no additional workflow setup required.
 

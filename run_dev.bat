@@ -4,6 +4,9 @@ REM Requires: uv (https://github.com/astral-sh/uv) and Node.js
 
 cd /d "%~dp0"
 
+REM ── Add uv to PATH ────────────────────────────────────────────────────────────
+SET PATH=%APPDATA%\Python\Python314\Scripts;%LOCALAPPDATA%\Programs\uv;%PATH%
+
 if not exist .env (
     echo WARNING: .env not found. Copy .env.example to .env and fill in your paths.
 )
@@ -29,9 +32,20 @@ if errorlevel 1 (
 REM ── 2. Python venv (uv) ───────────────────────────────────────────────────────
 if not exist .venv (
     echo Creating Python environment...
-    uv venv
+    uv venv --python 3.11
     if errorlevel 1 (
         echo ERROR: uv venv failed. Is uv installed? https://github.com/astral-sh/uv
+        pause
+        exit /b 1
+    )
+)
+REM ── Ensure CUDA-enabled PyTorch is installed ─────────────────────────────────
+uv run python -c "import torch; exit(0 if torch.cuda.is_available() else 1)" 2>nul
+if errorlevel 1 (
+    echo Installing PyTorch with CUDA 12.8 support...
+    uv pip install torch "torchaudio<2.8" --index-url https://download.pytorch.org/whl/cu128
+    if errorlevel 1 (
+        echo ERROR: PyTorch CUDA installation failed.
         pause
         exit /b 1
     )

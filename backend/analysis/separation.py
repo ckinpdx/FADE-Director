@@ -19,10 +19,10 @@ Usage:
 from __future__ import annotations
 
 import logging
+import shutil
+import subprocess
+import sys
 from pathlib import Path
-
-import soundfile as sf
-import torch
 
 logger = logging.getLogger(__name__)
 
@@ -34,56 +34,51 @@ def separate(
     out_dir: str | Path,
 ) -> dict[str, Path]:
     """
-    Separate vocals from a music file using Demucs.
+    Separate vocals from a music file using Demucs CLI.
 
     Args:
-        audio_path: Input audio file. MP3, WAV, FLAC, etc. (Demucs uses FFmpeg to load).
+        audio_path: Input audio file. MP3, WAV, FLAC, etc.
         out_dir:    Directory where vocals.wav and instrumental.wav will be written.
                     Created if it does not exist.
 
     Returns:
         Dict with keys "vocals" and "instrumental", values are absolute Paths.
     """
-    from demucs.api import Separator
-
-    audio_path = Path(audio_path)
-    out_dir = Path(out_dir)
+    audio_path = Path(audio_path).resolve()
+    out_dir = Path(out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Demucs CLI writes to: <tmp_dir>/<model>/<stem_name>/<filename>.wav
+    tmp_dir = out_dir / "_demucs_tmp"
+
+    logger.info("Running Demucs '%s' on '%s' ...", DEMUCS_MODEL, audio_path.name)
+    subprocess.run(
+        [
+            sys.executable, "-m", "demucs",
+            "--two-stems", "vocals",
+            "-n", DEMUCS_MODEL,
+            "--device", "cuda",
+            "-o", str(tmp_dir),
+            str(audio_path),
+        ],
+        check=True,
+    )
+
+    stem_dir = tmp_dir / DEMUCS_MODEL / audio_path.stem
+    raw_vocals = stem_dir / "vocals.wav"
+    raw_no_vocals = stem_dir / "no_vocals.wav"
 
     vocals_path = out_dir / "vocals.wav"
     instrumental_path = out_dir / "instrumental.wav"
 
-    logger.info("Loading Demucs model '%s' ...", DEMUCS_MODEL)
-    sep = Separator(DEMUCS_MODEL)
+    shutil.move(str(raw_vocals), str(vocals_path))
+    shutil.move(str(raw_no_vocals), str(instrumental_path))
+    shutil.rmtree(str(tmp_dir), ignore_errors=True)
 
-    logger.info("Separating '%s' ...", audio_path.name)
-    _, stems = sep.separate_audio_file(str(audio_path))
-    # stems: {"drums": Tensor, "bass": Tensor, "other": Tensor, "vocals": Tensor}
-    # shape: (channels, samples), float32
-
-    vocals = stems["vocals"].numpy().T          # (samples, channels)
-    non_vocal = sum(                             # sum remaining stems
-        v for k, v in stems.items() if k != "vocals"
-    )
-    if isinstance(non_vocal, torch.Tensor):
-        non_vocal = non_vocal.numpy().T
-    else:
-        non_vocal = non_vocal.T
-
-    sr = sep.samplerate
-
-    sf.write(str(vocals_path), vocals, sr, subtype="PCM_16")
-    logger.info("Saved vocals:       %s  (%.1fs)", vocals_path, len(vocals) / sr)
-
-    sf.write(str(instrumental_path), non_vocal, sr, subtype="PCM_16")
-    logger.info("Saved instrumental: %s  (%.1fs)", instrumental_path, len(non_vocal) / sr)
-
-    # Explicitly release Demucs GPU memory before returning
-    del sep, stems, vocals, non_vocal
-    torch.cuda.empty_cache()
-    logger.info("Demucs VRAM released.")
+    logger.info("Saved vocals:       %s", vocals_path)
+    logger.info("Saved instrumental: %s", instrumental_path)
 
     return {
-        "vocals": vocals_path.resolve(),
-        "instrumental": instrumental_path.resolve(),
+        "vocals": vocals_path,
+        "instrumental": instrumental_path,
     }
