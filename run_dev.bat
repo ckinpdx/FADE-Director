@@ -39,23 +39,24 @@ if not exist .venv (
         exit /b 1
     )
 )
-REM ── Ensure CUDA-enabled PyTorch is installed ─────────────────────────────────
-uv run python -c "import torch; exit(0 if torch.cuda.is_available() else 1)" 2>nul
-if errorlevel 1 (
-    echo Installing PyTorch with CUDA 12.8 support...
-    uv pip install torch "torchaudio<2.8" --index-url https://download.pytorch.org/whl/cu128
-    if errorlevel 1 (
-        echo ERROR: PyTorch CUDA installation failed.
-        pause
-        exit /b 1
-    )
-)
 echo Installing/syncing Python dependencies...
 uv pip install -r requirements.txt --quiet
 if errorlevel 1 (
     echo ERROR: pip install failed.
     pause
     exit /b 1
+)
+REM ── Ensure CUDA-enabled PyTorch is installed ─────────────────────────────────
+REM  Must run AFTER requirements.txt — demucs pulls CPU torch as a transitive dep.
+uv run python -c "import torch; exit(0 if torch.cuda.is_available() else 1)" 2>nul
+if errorlevel 1 (
+    echo Installing PyTorch with CUDA 12.8 support...
+    uv pip install torch "torchaudio<2.8" --index-url https://download.pytorch.org/whl/cu128 --reinstall-package torch --reinstall-package torchaudio
+    if errorlevel 1 (
+        echo ERROR: PyTorch CUDA installation failed.
+        pause
+        exit /b 1
+    )
 )
 
 REM ── 3. Frontend ───────────────────────────────────────────────────────────────

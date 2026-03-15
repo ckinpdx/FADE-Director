@@ -399,10 +399,11 @@ button {
   background: var(--surface);
   border: 1px dashed var(--border);
   border-radius: var(--radius);
-  padding: 8px 12px;
+  padding: 32px 12px;
   font-size: 13px;
   color: var(--muted);
   cursor: pointer;
+  text-align: center;
   transition: border-color 0.15s;
 }
 

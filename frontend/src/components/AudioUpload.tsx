@@ -263,7 +263,7 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
           />
           {refFile
             ? <span className="ref-zone-name">📷 {refFile.name}</span>
-            : <span className="ref-zone-hint">Click to attach reference image</span>
+            : <span className="ref-zone-hint">Drop image here or click to browse</span>
           }
         </div>
       </div>
