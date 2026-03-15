@@ -27,7 +27,7 @@ All inference is local. No cloud services required.
 - [uv](https://github.com/astral-sh/uv) — Python environment manager (used by `run_dev.bat`)
 - Node.js 18+
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI) running at `http://127.0.0.1:8188`
-- [llama-swap](https://github.com/mostlygeek/llama-swap) running at `http://127.0.0.1:8000` (requires llama-server compiled from source for Omni `--mmproj` support)
+- [llama-swap](https://github.com/mostlygeek/llama-swap) running at `http://127.0.0.1:8000` (requires llama-server compiled from source for Omni `--mmproj` support) — see `llama-swap-config.example.yaml` for a reference config
 - [Demucs](https://github.com/facebookresearch/demucs) — installed automatically via `requirements.txt`
 - [stable-ts](https://github.com/jianfch/stable-ts) — installed automatically via `requirements.txt`; downloads Whisper large-v3 on first run
 
@@ -134,24 +134,9 @@ SCENE_MAX_SECONDS=20
 
 ## Running
 
-Make sure ComfyUI and llama-swap are running, then:
+Make sure ComfyUI and llama-swap are running, then double-click `run_dev.bat`.
 
-```bash
-# Backend
-uvicorn backend.main:app --port 8001 --reload
-
-# Frontend (dev)
-cd frontend && npm run dev
-```
-
-Open `http://localhost:5173`.
-
-For production, build the frontend first — FastAPI serves it automatically:
-
-```bash
-cd frontend && npm run build
-uvicorn backend.main:app --port 8001
-```
+It will also start llama-swap automatically if it isn't already running (via Windows Scheduled Task).
 
 Open `http://localhost:8001`.
 

@@ -1,0 +1,20 @@
+healthCheckTimeout: 180
+startPort: 10001
+logLevel: info
+sendLoadingState: true
+
+models:
+  # Qwen3.5-35B-A3B Q4_K_M — main conversational agent
+  # -ot "exps=CPU": offloads MoE expert layers to CPU (saves VRAM on A3B variant)
+  # -ctk/-ctv q8_0: lossless KV cache quantization
+  # -c 131072: 128K context
+  qwen3.5-35b:
+    cmd: C:\path\to\llama-server.exe --port ${PORT} --model "C:\path\to\models\qwen3.5-35b.gguf" -ngl 999 -ot "exps=CPU" -b 4096 -ub 4096 -t 16 -c 131072 --jinja -fa on -ctk q8_0 -ctv q8_0 -sm none --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.00
+    ttl: 600
+
+  # Qwen2.5-Omni-7B Q4_K_M — multimodal: lyric transcription, intonation analysis, reference image description
+  # Requires --mmproj flag pointing to the matching multimodal projector file
+  # Loaded on-demand by llama-swap; swapped out before ComfyUI runs
+  Qwen2.5-Omni-7B:
+    cmd: C:\path\to\llama-server.exe --port ${PORT} --model "C:\path\to\models\Qwen2.5-Omni-7B-Q4_K_M.gguf" --mmproj "C:\path\to\models\mmproj-Qwen2.5-Omni-7B-f16.gguf" -ngl 99 -c 8192 --jinja -fa on -sm none --temp 0.3
+    ttl: 300
