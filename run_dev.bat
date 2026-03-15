@@ -1,6 +1,6 @@
 @echo off
-REM Music Director — development launcher
-REM Starts llama-swap, waits for it, then starts the backend server.
+REM FADE Director — development launcher
+REM Requires: uv (https://github.com/astral-sh/uv) and Node.js
 
 cd /d "%~dp0"
 
@@ -26,14 +26,36 @@ if errorlevel 1 (
     echo llama-swap already running.
 )
 
-REM ── 2. LTX-Desktop — started on-demand by FADE when video generation begins ──
-REM      Do NOT start here: PyTorch CUDA context (~1-2GB) would occupy VRAM during
-REM      analysis and LLM phases, reducing headroom for llama-swap models.
-echo LTX-Desktop will start automatically when video generation is requested.
+REM ── 2. Python venv (uv) ───────────────────────────────────────────────────────
+if not exist .venv (
+    echo Creating Python environment...
+    uv venv
+    if errorlevel 1 (
+        echo ERROR: uv venv failed. Is uv installed? https://github.com/astral-sh/uv
+        pause
+        exit /b 1
+    )
+)
+echo Installing/syncing Python dependencies...
+uv pip install -r requirements.txt --quiet
+if errorlevel 1 (
+    echo ERROR: pip install failed.
+    pause
+    exit /b 1
+)
 
-REM ── 3. Build frontend ────────────────────────────────────────────────────────
+REM ── 3. Frontend ───────────────────────────────────────────────────────────────
 echo Building frontend...
 cd /d "%~dp0frontend"
+if not exist node_modules (
+    echo node_modules not found — running npm install...
+    call npm install
+    if errorlevel 1 (
+        echo ERROR: npm install failed.
+        pause
+        exit /b 1
+    )
+)
 call npm run build
 if errorlevel 1 (
     echo ERROR: Frontend build failed.
@@ -42,20 +64,20 @@ if errorlevel 1 (
 )
 cd /d "%~dp0"
 
-REM ── 4. Kill any stale backend on port 8001 ────────────────────────────────────
+REM ── 4. Kill any stale backend on port 8001 ───────────────────────────────────
 FOR /F "tokens=5" %%P IN ('netstat -ano ^| findstr ":8001 " ^| findstr "LISTENING"') DO (
     powershell -Command "Stop-Process -Id %%P -Force -ErrorAction SilentlyContinue" 2>nul
 )
 
 REM ── 5. Open browser after server starts ──────────────────────────────────────
 echo.
-echo  Music Director
+echo  FADE Director
 echo  Open in browser: http://localhost:8001
 echo.
 start /b cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:8001"
 
-REM ── 6. Start backend ─────────────────────────────────────────────────────────
-python -m uvicorn backend.main:app ^
+REM ── 6. Start backend (inside uv venv) ────────────────────────────────────────
+uv run uvicorn backend.main:app ^
     --host 0.0.0.0 ^
     --port 8001 ^
     --log-level debug ^

@@ -78,25 +78,19 @@ All inference is local. No cloud services required.
 - [ComfyUI-KJNodes](https://github.com/kijai/ComfyUI-KJNodes)
 - [ClownsharK samplers](https://github.com/ClownsharKent/ComfyUI-ClownsharKSamplers)
 - Audio encoder nodes for HuMo whisper conditioning
+- [WanExperiments](https://github.com/drozbay/WanExperiments) — **not in ComfyUI Manager, must be cloned manually** into `ComfyUI/custom_nodes/`
 
 ---
 
 ## Installation
 
-```bash
-git clone https://github.com/your-username/music-director.git
-cd music-director
+**Prerequisites:** [uv](https://github.com/astral-sh/uv) and Node.js must be installed. Everything else is handled automatically.
 
-pip install -r requirements.txt
+1. Clone the repo
+2. Copy `.env.example` to `.env` and fill in your paths
+3. Run `run_dev.bat`
 
-cd frontend && npm install && cd ..
-```
-
-Copy the example env file and fill in your paths:
-
-```bash
-cp .env.example .env
-```
+`run_dev.bat` creates an isolated Python environment via `uv`, installs all Python dependencies, builds the frontend (running `npm install` automatically on first run), and starts the backend. No manual `pip install` or `npm install` needed.
 
 All ComfyUI workflow files and node maps ship with the repo in `backend/comfyui/workflows/` — no additional workflow setup required.
 
