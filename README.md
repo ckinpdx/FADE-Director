@@ -226,6 +226,10 @@ Set at upload time in the UI — these are locked for the lifetime of the sessio
 
 **Don't ask the agent to change scene boundaries.** The agent doesn't compute timestamps — it calls an algorithmic segmenter. Asking it to move a cut to a specific time tends to produce hallucinated or incorrect values. Instead: ask for a different scene count, say "reroll" to get a different cut placement at the same count, or adjust boundaries directly in the scene cards.
 
+**HuMo-only: the reference image is a soft guide, not a hard lock.** In the LTX workflows, the approved PNG is conditioning input — the video opens on that exact frame. In HuMo-only, the reference image influences style and subject but doesn't anchor the first frame. Write the video prompt with the same environmental detail you'd put in an image prompt: setting, lighting, color, atmosphere. If you rely on the image to carry that context, the output will drift.
+
+**HuMo-only: expect consistency loss at context window boundaries.** HuMo processes video in overlapping context windows. Across window seams, lighting, color grade, and fine character details can shift visibly. This is a model-level constraint, not a prompt issue. Shorter scenes reduce the number of window transitions and tend to produce more consistent output.
+
 **The style bible must go through the agent.** The style bible is written by the agent in chat and committed via a tool call — it isn't a form you fill in. Let the agent write it, review it in the sidebar, request edits in chat if needed, and confirm. Skipping or manually editing `prompts.json` before the agent commits it will break the prompt generation phase.
 
 ---

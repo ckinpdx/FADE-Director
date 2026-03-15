@@ -481,6 +481,7 @@ class Orchestrator:
         bible          = data.get("style_bible", {})
         outfits_lookup = data.get("outfits", {})
         n              = len(scenes)
+        video_workflow = self.session.config.video_workflow
 
         if not scenes:
             await self.push("status", {"message": "No scenes to write prompts for."})
@@ -535,6 +536,15 @@ class Orchestrator:
                     f"Your video_prompt must use a different camera direction AND different shot size."
                 )
 
+            workflow_note = (
+                "\n\nVIDEO WORKFLOW: HuMo-only — the reference image is a soft guide, "
+                "NOT a hard conditioning input. The video does NOT open on the approved "
+                "image frame. Write the video_prompt with full environmental detail: "
+                "setting, surfaces, light quality, atmosphere — the same specificity "
+                "you put in the image_prompt. Do not rely on the image to carry context."
+                if video_workflow == "humo" else ""
+            )
+
             message = (
                 f"Write prompts for scene {i} of {n}.\n\n"
                 f"STYLE BIBLE:\n{bible_text}\n\n"
@@ -549,7 +559,8 @@ class Orchestrator:
                 f"  lyric_theme:       {scene.get('lyric_theme')}\n"
                 f"  intonation_note:   {scene.get('intonation_note')}\n"
                 f"  energy_level:      {scene.get('energy_level')}\n"
-                f"{variety_note}\n\n"
+                f"{variety_note}"
+                f"{workflow_note}\n\n"
                 f"Call set_scene_prompts({i}, image_prompt, video_prompt) when ready."
             )
 
