@@ -1,0 +1,199 @@
+# FADE — Music Video Director
+
+A locally-hosted agentic service for directing music videos. Upload a song, converse with an LLM agent to shape the creative direction, and produce a complete music video using ComfyUI.
+
+All inference is local. No cloud services required.
+
+---
+
+## How it works
+
+1. Upload an audio file and paste the song lyrics. Optionally upload a character reference image.
+2. FADE separates vocals, aligns lyrics word-by-word to the audio, and analyzes musical structure and mood.
+3. Converse with the agent to plan scenes, define visual style, and generate per-scene prompts.
+4. Approve the storyboard — FADE submits image generation to ComfyUI scene by scene.
+5. Review images, trigger video generation, approve videos.
+6. Export the final MP4.
+
+---
+
+## Prerequisites
+
+### Hardware
+- NVIDIA GPU with sufficient VRAM (tested on RTX 5090 32GB)
+- The pipeline runs one model at a time via llama-swap — Omni-7B-Q4 ≈ 5GB, Qwen3.5-35B-Q4 ≈ 22GB, ComfyUI models load separately
+
+### Software
+- Python 3.11+
+- Node.js 18+
+- [ComfyUI](https://github.com/comfyanonymous/ComfyUI) running at `http://127.0.0.1:8188`
+- [llama-swap](https://github.com/mostlygeek/llama-swap) running at `http://127.0.0.1:8000` (requires llama-server compiled from source for Omni `--mmproj` support)
+- [Demucs](https://github.com/facebookresearch/demucs) (`pip install demucs`)
+- [stable-ts](https://github.com/jianfch/stable-ts) (`pip install stable-ts`) — downloads Whisper large-v3 automatically on first run
+
+### LLM models (via llama-swap)
+- `qwen3.5-35b` — main conversational agent (Qwen3.5-35B-A3B Q4_K_M recommended)
+- `Qwen2.5-Omni-7B` — multimodal: intonation analysis, reference image description. Requires `--mmproj` flag in llama-swap config.
+
+### ComfyUI models
+
+**Image workflows — choose one per session:**
+
+*ZIT with Reactor* (default):
+- `z_image_turbo_bf16.safetensors` — main diffusion model (UNETLoader, lumina2/AuraFlow)
+- `qwen_3_4b.safetensors` — CLIP text encoder (lumina2 type)
+- `ae.safetensors` — VAE
+- `gonzalomoXLFluxPony_v40UnityXLDMD.safetensors` — refinement checkpoint
+- `NoeveV3.safetensors` — Reactor face model (user-specific)
+- Ultralytics face/body detection models + SAM model (for FaceDetailer)
+
+*Qwen Image Edit*:
+- `Qwen-Rapid-AIO-NSFW-v23.safetensors` — checkpoint (CheckpointLoaderKJ)
+- `anything2real_2601.safetensors` — LoRA
+
+**Video workflows — choose one per session:**
+
+*LTX with HuMo* (default) and *LTX only*:
+- `ltx2-phr00tmerge-sfw-v5.safetensors` — LTX-2 checkpoint
+- `LTX2_video_vae_bf16.safetensors` + `LTX2_audio_vae_bf16.safetensors`
+- `ltx-2-spatial-upscaler-x2-1.0.safetensors`
+
+*LTX with HuMo* and *HuMo only*:
+- `humo_17B_fp16.safetensors` — HuMo model
+- `lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank128_bf16.safetensors` — HuMo LoRA
+- `umt5_xxl_fp8_e4m3fn_scaled.safetensors` — Wan2.1 CLIP
+- `Wan2_1_VAE_bf16.safetensors`
+- `whisper_large_v3_encoder_fp16.safetensors`
+
+### Required ComfyUI custom nodes
+
+**ZIT with Reactor:**
+- [ComfyUI-ReActor](https://github.com/Gourieff/comfyui-reactor-node)
+- [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack)
+
+**All video workflows:**
+- [ComfyUI-LTXVideo](https://github.com/Lightricks/ComfyUI-LTXVideo)
+- [ComfyUI-VideoHelperSuite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite)
+- [ComfyUI-WanVideoWrapper](https://github.com/kijai/ComfyUI-WanVideoWrapper)
+- [ComfyUI-KJNodes](https://github.com/kijai/ComfyUI-KJNodes)
+- [ClownsharK samplers](https://github.com/ClownsharKent/ComfyUI-ClownsharKSamplers)
+- Audio encoder nodes for HuMo whisper conditioning
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/your-username/music-director.git
+cd music-director
+
+pip install -r requirements.txt
+
+cd frontend && npm install && cd ..
+```
+
+Copy the example env file and fill in your paths:
+
+```bash
+cp .env.example .env
+```
+
+All ComfyUI workflow files and node maps ship with the repo in `backend/comfyui/workflows/` — no additional workflow setup required.
+
+---
+
+## Configuration
+
+Edit `.env`:
+
+```env
+# LLM — all models through llama-swap
+AGENT_URL=http://127.0.0.1:8000
+AGENT_MODEL=qwen3.5-35b
+OMNI_MODEL=Qwen2.5-Omni-7B
+
+# ComfyUI
+COMFYUI_URL=http://127.0.0.1:8188
+COMFYUI_INPUT_DIR=C:/ComfyUI/input
+COMFYUI_OUTPUT_DIR=C:/ComfyUI/output
+
+# Service
+SERVICE_PORT=8001
+SESSION_DIR=./sessions
+
+# Defaults (overridable per session in the UI)
+DEFAULT_ORIENTATION=landscape   # portrait | landscape
+DEFAULT_FPS=25
+SCENE_MIN_SECONDS=3
+SCENE_MAX_SECONDS=20
+```
+
+**Output dimensions by workflow and orientation:**
+
+| Workflow | Landscape | Portrait |
+|---|---|---|
+| ZIT / Qwen Image Edit (T2I) | 2048×1152 | 1152×2048 |
+| LTX with HuMo / LTX only (I2V) | 2560×1440 | 1080×1920 |
+| HuMo only | controlled by long edge (1536 landscape / 1152 portrait) | |
+
+---
+
+## Running
+
+Make sure ComfyUI and llama-swap are running, then:
+
+```bash
+# Backend
+uvicorn backend.main:app --port 8001 --reload
+
+# Frontend (dev)
+cd frontend && npm run dev
+```
+
+Open `http://localhost:5173`.
+
+For production, build the frontend first — FastAPI serves it automatically:
+
+```bash
+cd frontend && npm run build
+uvicorn backend.main:app --port 8001
+```
+
+Open `http://localhost:8001`.
+
+---
+
+## Per-session options
+
+Set at upload time in the UI — these are locked for the lifetime of the session:
+
+| Option | Choices |
+|---|---|
+| Orientation | Landscape, Portrait |
+| Image Workflow | ZIT with Reactor, Qwen Image Edit |
+| Video Workflow | LTX with HuMo, LTX, HuMo |
+
+---
+
+## Session data
+
+Each session is stored under `sessions/{project-name}-{id}/`:
+
+```
+prompts.json        — scene batch descriptor; source of truth for all generation
+session.json        — phase, config, analysis outputs; persists across restarts
+audio/              — original audio, vocals.wav, instrumental.wav, aligned lyrics
+images/             — generated PNGs (current approved version)
+images/archive/     — rejected regen history
+videos/             — generated MP4s (current approved version)
+videos/archive/     — rejected regen history
+final.mp4           — export output
+```
+
+Sessions survive server restarts — the UI restores your last saved phase automatically.
+
+---
+
+## Suno assistant
+
+FADE includes a Suno prompt engineering assistant at `/suno`. A dedicated chat agent interviews you about the song you want to create and produces a complete Suno prompt package: style tags, structured lyrics with section markers and metatags, and generation notes. No audio analysis or ComfyUI involved.

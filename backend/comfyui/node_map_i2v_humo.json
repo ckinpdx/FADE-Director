@@ -1,0 +1,14 @@
+{
+  "video_prompt":         "1379",
+  "negative_prompt":      "1380",
+  "humo_negative":        "1372",
+  "start_frame":          "1359",
+  "audio_file":           "746",
+  "frame_count":          "1360",
+  "humo_long_edge":       "1390",
+  "humo_seed":            "1368",
+  "humo_sampler_steps":   "1368",
+  "humo_scheduler_steps": "1362",
+  "create_video":         "1382",
+  "save":                 "1381"
+}

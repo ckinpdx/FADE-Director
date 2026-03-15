@@ -1,0 +1,427 @@
+{
+  "746": {
+    "inputs": {
+      "audio": "Good Boy.wav",
+      "start_time": 11,
+      "duration": 0
+    },
+    "class_type": "VHS_LoadAudioUpload",
+    "_meta": {
+      "title": "Load Audio (Upload)🎥🅥🅗🅢"
+    }
+  },
+  "1023": {
+    "inputs": {
+      "shift": 12,
+      "model": [
+        "1113",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "1025": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "1027": {
+    "inputs": {
+      "vae_name": "Wan2_1_VAE_bf16.safetensors",
+      "device": "main_device",
+      "weight_dtype": "bf16"
+    },
+    "class_type": "VAELoaderKJ",
+    "_meta": {
+      "title": "VAELoader KJ"
+    }
+  },
+  "1030": {
+    "inputs": {
+      "lora_name": "lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank128_bf16.safetensors",
+      "strength_model": 1,
+      "model": [
+        "1023",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "1036": {
+    "inputs": {
+      "audio_encoder_name": "whisper_large_v3_encoder_fp16.safetensors"
+    },
+    "class_type": "AudioEncoderLoader",
+    "_meta": {
+      "title": "AudioEncoderLoader"
+    }
+  },
+  "1037": {
+    "inputs": {
+      "model_name": "MelBandRoformer_fp16.safetensors"
+    },
+    "class_type": "MelBandRoFormerModelLoader",
+    "_meta": {
+      "title": "Mel-Band RoFormer Model Loader"
+    }
+  },
+  "1113": {
+    "inputs": {
+      "model_name": "humo_17B_fp16.safetensors",
+      "weight_dtype": "default",
+      "compute_dtype": "default",
+      "patch_cublaslinear": false,
+      "sage_attention": "auto",
+      "enable_fp16_accumulation": true
+    },
+    "class_type": "DiffusionModelLoaderKJ",
+    "_meta": {
+      "title": "Diffusion Model Loader KJ"
+    }
+  },
+  "1359": {
+    "inputs": {
+      "image": "scene_1_00001_.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "1360": {
+    "inputs": {
+      "value": 81
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "FRAMES TO GENERATE"
+    }
+  },
+  "1362": {
+    "inputs": {
+      "steps": 6,
+      "denoise": 1,
+      "inflection_percent": 0.5,
+      "threshold_noise": 0.2,
+      "model": [
+        "1023",
+        0
+      ]
+    },
+    "class_type": "Linear Quadratic Advanced",
+    "_meta": {
+      "title": "Linear Quadratic Advanced"
+    }
+  },
+  "1366": {
+    "inputs": {
+      "image": [
+        "1378",
+        0
+      ]
+    },
+    "class_type": "GetImageSizeAndCount",
+    "_meta": {
+      "title": "Get Image Size & Count"
+    }
+  },
+  "1367": {
+    "inputs": {
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 192,
+      "temporal_overlap": 16,
+      "samples": [
+        "1368",
+        0
+      ],
+      "vae": [
+        "1027",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeTiled",
+    "_meta": {
+      "title": "VAE Decode (Tiled)"
+    }
+  },
+  "1368": {
+    "inputs": {
+      "eta": 0.85,
+      "sampler_name": "linear/euler",
+      "scheduler": "beta",
+      "steps": 6,
+      "steps_to_run": -1,
+      "denoise": 1,
+      "cfg": 1,
+      "seed": 1,
+      "sampler_mode": "standard",
+      "bongmath": true,
+      "model": [
+        "1371",
+        0
+      ],
+      "positive": [
+        "1370",
+        0
+      ],
+      "negative": [
+        "1370",
+        1
+      ],
+      "latent_image": [
+        "1370",
+        2
+      ],
+      "sigmas": [
+        "1362",
+        0
+      ],
+      "options": [
+        "1369",
+        0
+      ]
+    },
+    "class_type": "ClownsharKSampler_Beta",
+    "_meta": {
+      "title": "ClownsharKSampler"
+    }
+  },
+  "1369": {
+    "inputs": {
+      "extra_options": "default_dtype=float32\nmultistep_fallback_sampler=ddim\nmultistep_extra_initial_steps=0\nskip_final_model_call"
+    },
+    "class_type": "ClownOptions_ExtraOptions_Beta",
+    "_meta": {
+      "title": "ClownOptions Extra Options"
+    }
+  },
+  "1370": {
+    "inputs": {
+      "width": [
+        "1366",
+        1
+      ],
+      "height": [
+        "1366",
+        2
+      ],
+      "length": [
+        "1360",
+        0
+      ],
+      "batch_size": 1,
+      "ref_strength": 1,
+      "positive": [
+        "1377",
+        0
+      ],
+      "negative": [
+        "1372",
+        0
+      ],
+      "vae": [
+        "1027",
+        0
+      ],
+      "audio_encoder_output": [
+        "1373",
+        0
+      ],
+      "ref_images": [
+        "1366",
+        0
+      ]
+    },
+    "class_type": "WanEx_HuMoImageToVideo",
+    "_meta": {
+      "title": "WanEx HuMoImageToVideo"
+    }
+  },
+  "1371": {
+    "inputs": {
+      "context_length": 89,
+      "context_overlap": 25,
+      "context_schedule": "standard_static",
+      "context_stride": 1,
+      "closed_loop": false,
+      "fuse_method": "pyramid",
+      "freenoise": true,
+      "cond_retain_index_list": "",
+      "split_conds_to_windows": true,
+      "explicit_cond_mapping": "",
+      "model": [
+        "1393",
+        0
+      ]
+    },
+    "class_type": "WanEx_ContextWindowsAdvanced",
+    "_meta": {
+      "title": "WanEx ContextWindows"
+    }
+  },
+  "1372": {
+    "inputs": {
+      "text": "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走",
+      "clip": [
+        "1025",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "1373": {
+    "inputs": {
+      "audio_encoder": [
+        "1036",
+        0
+      ],
+      "audio": [
+        "1376",
+        0
+      ]
+    },
+    "class_type": "AudioEncoderEncode",
+    "_meta": {
+      "title": "AudioEncoderEncode"
+    }
+  },
+  "1376": {
+    "inputs": {
+      "model": [
+        "1037",
+        0
+      ],
+      "audio": [
+        "746",
+        0
+      ]
+    },
+    "class_type": "MelBandRoFormerSampler",
+    "_meta": {
+      "title": "Mel-Band RoFormer Sampler"
+    }
+  },
+  "1377": {
+    "inputs": {
+      "text": [
+        "1379",
+        0
+      ],
+      "clip": [
+        "1025",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "1378": {
+    "inputs": {
+      "size": [
+        "1390",
+        0
+      ],
+      "interpolation_mode": "nearest exact",
+      "image": [
+        "1359",
+        0
+      ]
+    },
+    "class_type": "JWImageResizeByLongerSide",
+    "_meta": {
+      "title": "Image Resize by Longer Side"
+    }
+  },
+  "1379": {
+    "inputs": {
+      "value": "Open on her hand resting on the polished chrome table edge, fingers splayed and still. She shifts her weight between knee-high boots, smiling and vocalizing. Low energy means minimal physical delivery — her chest rises with slow breath, jaw tight, eyes scanning the empty club like she owns it. The camera holds static, shallow depth of field keeping her face sharp while leather booths and neon signs blur behind. A single neon sign flickers overhead, casting pink and blue across her platinum hair.\n"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "POSITIVE PROMPT"
+    }
+  },
+  "1380": {
+    "inputs": {
+      "value": "cartoon, illustration, watermark, text, logo, blurry, low resolution, deformed hands, extra fingers, distorted face, bad anatomy, oversaturated, washed out, grainy, pixelated\n"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "NEGATIVE PROMPT"
+    }
+  },
+  "1381": {
+    "inputs": {
+      "filename_prefix": "videoAPI/ComfyUI",
+      "format": "mp4",
+      "codec": "h264",
+      "video-preview": "",
+      "video": [
+        "1382",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    }
+  },
+  "1382": {
+    "inputs": {
+      "fps": 25,
+      "images": [
+        "1367",
+        0
+      ],
+      "audio": [
+        "746",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "1390": {
+    "inputs": {
+      "value": 1792
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "HuMo Long Edge"
+    }
+  },
+  "1393": {
+    "inputs": {
+      "lora_name": "FaceDetailerV1.safetensors",
+      "strength_model": 0.6,
+      "model": [
+        "1030",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  }
+}

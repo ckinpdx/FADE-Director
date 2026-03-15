@@ -1,0 +1,195 @@
+{
+  "1458": {
+    "inputs": {
+      "seed": 1,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "beta",
+      "denoise": 1,
+      "model": [
+        "1553",
+        0
+      ],
+      "positive": [
+        "1509",
+        0
+      ],
+      "negative": [
+        "1459",
+        0
+      ],
+      "latent_image": [
+        "1510",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "1459": {
+    "inputs": {
+      "prompt": [
+        "1556",
+        0
+      ],
+      "clip": [
+        "1499",
+        1
+      ],
+      "vae": [
+        "1499",
+        2
+      ]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": {
+      "title": "TextEncodeQwenImageEditPlus"
+    }
+  },
+  "1492": {
+    "inputs": {
+      "samples": [
+        "1458",
+        0
+      ],
+      "vae": [
+        "1499",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "1499": {
+    "inputs": {
+      "ckpt_name": "Qwen-Rapid-AIO-NSFW-v23.safetensors",
+      "weight_dtype": "default",
+      "compute_dtype": "default",
+      "patch_cublaslinear": false,
+      "sage_attention": "disabled",
+      "enable_fp16_accumulation": true
+    },
+    "class_type": "CheckpointLoaderKJ",
+    "_meta": {
+      "title": "CheckpointLoaderKJ"
+    }
+  },
+  "1501": {
+    "inputs": {
+      "value": "Medium shot of woman standing in The Club, black leather harness over bare chest with micro shorts and knee-high boots, dark smoky space with leather booths and neon signs in background, harsh side-light cutting through haze, deep shadow with single key light from above, cold blue ambient glow reflecting off chrome surfaces, one hand resting on polished chrome table edge, fingers splayed and still against the metallic surface."
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "FADE: Positive Prompt"
+    }
+  },
+  "1509": {
+    "inputs": {
+      "prompt": [
+        "1501",
+        0
+      ],
+      "clip": [
+        "1499",
+        1
+      ],
+      "vae": [
+        "1499",
+        2
+      ],
+      "image1": [
+        "1522",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": {
+      "title": "TextEncodeQwenImageEditPlus"
+    }
+  },
+  "1510": {
+    "inputs": {
+      "width": [
+        "1554",
+        0
+      ],
+      "height": [
+        "1555",
+        0
+      ],
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "1522": {
+    "inputs": {
+      "image": "8b9d0e1e-3dae-43d0-83ae-b54be62b669c.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "FADE: Load Image"
+    }
+  },
+  "1552": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "1492",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "FADE: Save Image"
+    }
+  },
+  "1553": {
+    "inputs": {
+      "lora_name": "anything2real_2601.safetensors",
+      "strength_model": 1,
+      "model": [
+        "1499",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "1554": {
+    "inputs": {
+      "value": 2048
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "FADE: Width"
+    }
+  },
+  "1555": {
+    "inputs": {
+      "value": 1152
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "FADE: Height"
+    }
+  },
+  "1556": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "FADE: Negative Prompt"
+    }
+  }
+}
