@@ -144,6 +144,70 @@ Open `http://localhost:8001`.
 
 ---
 
+## Using your own workflows
+
+FADE patches specific nodes in each workflow at runtime. To use your own ComfyUI workflow, you tell FADE which nodes to patch by giving them special titles in the ComfyUI node editor, then re-exporting and running a script.
+
+### Step 1 — Tag your nodes in ComfyUI
+
+Right-click each node → **Title** and set the exact title string listed below. Only the title needs to change — the node type, connections, and all other settings stay as-is.
+
+**Image workflow (`ltx2_t2i.json`) — 4 required:**
+
+| Title | Node to tag |
+|---|---|
+| `FADE: Positive Prompt` | Main positive CLIPTextEncode |
+| `FADE: Seed` | KSampler or equivalent sampler |
+| `FADE: Dimensions` | Empty latent image node (must have `width` + `height` inputs) |
+| `FADE: Save` | SaveImage node |
+
+**Video workflow (`ltx2_i2v_humo.json`) — 9 required, 6 optional:**
+
+| Title | Node to tag |
+|---|---|
+| `FADE: Video Prompt` | Positive text primitive or CLIPTextEncode |
+| `FADE: Start Frame` | LoadImage (receives the approved PNG from the image phase) |
+| `FADE: Audio File` | VHS_LoadAudioUpload (receives the full session audio file) |
+| `FADE: Audio Start` | PrimitiveFloat — scene start time in seconds |
+| `FADE: Frame Count` | PrimitiveInt — snapped 8k+1 frame count |
+| `FADE: Width` | PrimitiveInt |
+| `FADE: Height` | PrimitiveInt |
+| `FADE: Seed` | RandomNoise or sampler seed node |
+| `FADE: Save` | SaveVideo node |
+
+Optional — only tag if present in your workflow:
+
+| Title | Node to tag |
+|---|---|
+| `FADE: Negative Prompt` | Negative text primitive |
+| `FADE: Seed 2` | Second RandomNoise (2-pass LTX workflows) |
+| `FADE: HuMo Seed` | HuMo sampler seed node |
+| `FADE: HuMo Long Edge` | JWImageResizeByLongerSide before HuMo |
+| `FADE: FPS` | CreateVideo fps field |
+| `FADE: FPS Conditioning` | LTXVConditioning frame_rate field |
+
+### Step 2 — Export as API format
+
+In ComfyUI: **Settings → Enable Dev Mode Options**, then use the **Save (API Format)** button (not the regular Save). This produces the JSON structure FADE reads.
+
+### Step 3 — Drop files and rebuild the node map
+
+```
+backend/comfyui/workflows/
+    ltx2_t2i.json         ← your exported image workflow
+    ltx2_i2v_humo.json    ← your exported video workflow
+```
+
+Then run:
+
+```
+python scripts/build_node_map.py
+```
+
+This scans both files, validates all required titles are present, and writes `backend/comfyui/node_map_t2i.json` + `backend/comfyui/node_map_i2v.json`. It prints each matched node with its ID and class type so you can verify the right nodes were found. Re-run any time you update a workflow.
+
+---
+
 ## Per-session options
 
 Set at upload time in the UI — these are locked for the lifetime of the session:
@@ -153,6 +217,16 @@ Set at upload time in the UI — these are locked for the lifetime of the sessio
 | Orientation | Landscape, Portrait |
 | Image Workflow | ZIT with Reactor, Qwen Image Edit |
 | Video Workflow | LTX with HuMo, LTX, HuMo |
+
+---
+
+## Usage notes
+
+**Use buttons, not chat, to advance phases.** When a button is visible — Generate Prompts, Generate Images, Generate Videos — click it. Asking the agent to "proceed" or "generate" in chat may not trigger the same code path.
+
+**Don't ask the agent to change scene boundaries.** The agent doesn't compute timestamps — it calls an algorithmic segmenter. Asking it to move a cut to a specific time tends to produce hallucinated or incorrect values. Instead: ask for a different scene count, say "reroll" to get a different cut placement at the same count, or adjust boundaries directly in the scene cards.
+
+**The style bible must go through the agent.** The style bible is written by the agent in chat and committed via a tool call — it isn't a form you fill in. Let the agent write it, review it in the sidebar, request edits in chat if needed, and confirm. Skipping or manually editing `prompts.json` before the agent commits it will break the prompt generation phase.
 
 ---
 
