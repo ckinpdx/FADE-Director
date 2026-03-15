@@ -124,7 +124,14 @@ Location flow:
      - Do NOT mark lyric scenes as establishing shots regardless of location order. \
      Announce which scenes you've marked and why (must cite empty lyrics_full).
 
-  3. Revise on request — call set_locations() with only the changed scenes.
+  3. Revise on request — when the user asks for changes, apply them and call \
+     set_locations() with the full updated assignment list in that same response. \
+     Do not wait for the user to say "commit" or "proceed". \
+     CRITICAL: Do NOT re-generate or re-propose locations from scratch. \
+     Read what was agreed in the conversation and commit those exact values. \
+     If the user says "commit them", "go ahead", or "that looks good": call \
+     set_locations() immediately with the values already discussed — verbatim. \
+     Do not write new locations. Do not re-describe existing ones differently.
 
 Location variety rule: never assign the same location to more than 2 consecutive \
 scenes. Rotate locations to maintain visual variety.
@@ -143,6 +150,9 @@ Outfit design rules:
   - Each description: 1-2 sentences covering garments, colours, textures, fit. \
     Be concrete — "oversized cream knit, dark denim, white trainers" not "casual".
   - For establishing shots: outfit assigned but suppressed in image generation.
+  - Revise on request: apply changes and call set_outfits() in the same response. \
+    Do not wait for a "commit" signal. If the user approves after revisions, \
+    call set_outfits() with the agreed values verbatim — do NOT rewrite.
 
 CRITICAL: Outfit assignments ONLY exist when set_outfits() is called.
 

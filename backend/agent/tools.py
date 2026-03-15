@@ -914,7 +914,7 @@ async def _generate_videos(session: Session, push: PushFn,
         if "humo_seed" in node_map:
             patches[node_map["humo_seed"]] = {"seed": scene["seed"] + 2}
         if "humo_long_edge" in node_map:
-            patches[node_map["humo_long_edge"]] = {"value": 1152 if cfg.orientation == "portrait" else 1536}
+            patches[node_map["humo_long_edge"]] = {"value": 1152 if cfg.orientation == "portrait" else 1280}
         if "create_video" in node_map:
             patches[node_map["create_video"]] = {"fps": cfg.fps}
 
