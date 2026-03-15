@@ -24,12 +24,12 @@ All inference is local. No cloud services required.
 - The pipeline runs one model at a time via llama-swap — Omni-7B-Q4 ≈ 5GB, Qwen3.5-35B-Q4 ≈ 22GB, ComfyUI models load separately
 
 ### Software
-- Python 3.11+
+- [uv](https://github.com/astral-sh/uv) — Python environment manager (used by `run_dev.bat`)
 - Node.js 18+
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI) running at `http://127.0.0.1:8188`
 - [llama-swap](https://github.com/mostlygeek/llama-swap) running at `http://127.0.0.1:8000` (requires llama-server compiled from source for Omni `--mmproj` support)
-- [Demucs](https://github.com/facebookresearch/demucs) (`pip install demucs`)
-- [stable-ts](https://github.com/jianfch/stable-ts) (`pip install stable-ts`) — downloads Whisper large-v3 automatically on first run
+- [Demucs](https://github.com/facebookresearch/demucs) — installed automatically via `requirements.txt`
+- [stable-ts](https://github.com/jianfch/stable-ts) — installed automatically via `requirements.txt`; downloads Whisper large-v3 on first run
 
 ### LLM models (via llama-swap)
 - `qwen3.5-35b` — main conversational agent (Qwen3.5-35B-A3B Q4_K_M recommended)
