@@ -887,11 +887,15 @@ async def _generate_videos(session: Session, push: PushFn,
                            "duration": scene["frame_count"] / cfg.fps}
             patches_audio_start = {}
 
+        fc = scene["frame_count"]
+        if workflow in ("ltx_humo", "humo"):
+            fc = max(fc, 81)
+
         patches = {
             node_map["video_prompt"]: {"value": scene["video_prompt"]},
             node_map["start_frame"]:  {"image": img_filename},
             node_map["audio_file"]:   audio_patch,
-            node_map["frame_count"]:  {"value": scene["frame_count"]},
+            node_map["frame_count"]:  {"value": fc},
             node_map["save"]:         {"filename_prefix": save_key},
             **patches_audio_start,
         }

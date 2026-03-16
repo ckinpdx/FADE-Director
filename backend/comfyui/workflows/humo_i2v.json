@@ -252,7 +252,7 @@
   },
   "1371": {
     "inputs": {
-      "context_length": 89,
+      "context_length": 77,
       "context_overlap": 25,
       "context_schedule": "standard_static",
       "context_stride": 1,
