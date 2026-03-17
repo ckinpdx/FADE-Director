@@ -19,6 +19,7 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
   const [orientation,  setOrientation]  = useState<'landscape' | 'portrait'>('landscape')
   const [imageWorkflow,  setImageWorkflow]  = useState<'zit' | 'qie'>('zit')
   const [videoWorkflow,  setVideoWorkflow]  = useState<'ltx_humo' | 'ltx' | 'humo'>('ltx_humo')
+  const [humoResolution, setHumoResolution] = useState<1280 | 1536 | 1920>(1280)
 
   const audioInputRef = useRef<HTMLInputElement>(null)
   const refInputRef   = useRef<HTMLInputElement>(null)
@@ -41,6 +42,8 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
       form.append('orientation', orientation)
       form.append('image_workflow', imageWorkflow)
       form.append('video_workflow', videoWorkflow)
+      if (videoWorkflow === 'ltx_humo' || videoWorkflow === 'humo')
+        form.append('humo_resolution', String(humoResolution))
       if (refFile) form.append('reference', refFile)
 
       const r = await fetch('/sessions', { method: 'POST', body: form })
@@ -216,6 +219,26 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
           </button>
         </div>
       </div>
+
+      {/* HuMo resolution (only for HuMo-involved workflows) */}
+      {(videoWorkflow === 'ltx_humo' || videoWorkflow === 'humo') && (
+        <div className="lyrics-field">
+          <label className="lyrics-label">HuMo Resolution</label>
+          <div className="orientation-toggle">
+            {([1280, 1536, 1920] as const).map(res => (
+              <button
+                key={res}
+                type="button"
+                className={`orientation-btn ${humoResolution === res ? 'orientation-btn--active' : ''}`}
+                onClick={() => setHumoResolution(res)}
+                disabled={uploading}
+              >
+                {res}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Lyrics */}
       <div className="lyrics-field">

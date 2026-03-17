@@ -156,9 +156,10 @@ async def create_session(
     fps:           int        = Form(default=None),
     scene_min_s:   float      = Form(default=None),
     scene_max_s:   float      = Form(default=None),
-    image_workflow: str        = Form(default=None),
-    video_workflow: str        = Form(default=None),
-    reference:      UploadFile = File(default=None),
+    image_workflow:  str        = Form(default=None),
+    video_workflow:  str        = Form(default=None),
+    humo_resolution: int        = Form(default=None),
+    reference:       UploadFile = File(default=None),
 ):
     """
     Create a session, save uploaded files, and immediately start the analysis pipeline.
@@ -180,17 +181,19 @@ async def create_session(
 
     orient = orientation or config.DEFAULT_ORIENTATION
     w, h   = _orientation_dims(orient)
-    iwf = image_workflow if image_workflow in ("zit", "qie")              else "zit"
-    vwf = video_workflow if video_workflow in ("ltx_humo", "ltx", "humo") else "ltx_humo"
+    iwf  = image_workflow  if image_workflow  in ("zit", "qie")              else "zit"
+    vwf  = video_workflow  if video_workflow  in ("ltx_humo", "ltx", "humo") else "ltx_humo"
+    hres = humo_resolution if humo_resolution in (1280, 1536, 1920)          else 1280
     cfg = SessionConfig(
-        width          = w,
-        height         = h,
-        fps            = fps         or config.DEFAULT_FPS,
-        orientation    = orient,
-        scene_min_s    = scene_min_s or config.SCENE_MIN_SECONDS,
-        scene_max_s    = scene_max_s or config.SCENE_MAX_SECONDS,
-        image_workflow = iwf,
-        video_workflow = vwf,
+        width           = w,
+        height          = h,
+        fps             = fps         or config.DEFAULT_FPS,
+        orientation     = orient,
+        scene_min_s     = scene_min_s or config.SCENE_MIN_SECONDS,
+        scene_max_s     = scene_max_s or config.SCENE_MAX_SECONDS,
+        image_workflow  = iwf,
+        video_workflow  = vwf,
+        humo_resolution = hres,
     )
 
     session = Session(

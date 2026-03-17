@@ -91,10 +91,10 @@ export function HomePage({ onMakeVideo, onWriteSong, onMakeSong, onResume }: Pro
         </button>
 
         {/* Make a Song — ACEStep */}
-        <button className="mode-card mode-card--active" onClick={onMakeSong}>
+        <button className="mode-card mode-card--disabled" disabled>
           <div className="mode-card-icon">🎵</div>
           <div className="mode-card-body">
-            <div className="mode-card-title">Make a Song</div>
+            <div className="mode-card-title">Make a Song <span className="mode-card-badge">Under development</span></div>
             <div className="mode-card-desc">
               Generate music locally with ACE-Step 1.5. The agent interviews you,
               crafts the prompt, and runs inference on-device.

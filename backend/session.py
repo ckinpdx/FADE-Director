@@ -46,8 +46,9 @@ class SessionConfig:
     orientation:   str   = "landscape"  # portrait | landscape
     scene_min_s:   float = 3.0
     scene_max_s:   float = 20.0
-    image_workflow: str   = "zit"        # zit | qie — set at session creation
-    video_workflow: str   = "ltx_humo"   # ltx_humo | ltx | humo — set at session creation
+    image_workflow:  str   = "zit"        # zit | qie — set at session creation
+    video_workflow:  str   = "ltx_humo"   # ltx_humo | ltx | humo — set at session creation
+    humo_resolution: int   = 1280         # HuMo long-edge for landscape (1280 | 1536 | 1920)
     base_negative: str   = (
         "blurry, distorted, low quality, artifacts, watermark, text, "
         "duplicate, ugly, deformed, mutated, out of frame"
@@ -246,8 +247,9 @@ class Session:
                 "fps":            self.config.fps,
                 "scene_min_s":    self.config.scene_min_s,
                 "scene_max_s":    self.config.scene_max_s,
-                "image_workflow": self.config.image_workflow,
-                "video_workflow": self.config.video_workflow,
+                "image_workflow":  self.config.image_workflow,
+                "video_workflow":  self.config.video_workflow,
+                "humo_resolution": self.config.humo_resolution,
             },
         }
         (self.session_dir / "session.json").write_text(
@@ -303,8 +305,9 @@ class Session:
             fps            = cfg_d.get("fps",            25),
             scene_min_s    = cfg_d.get("scene_min_s",    3.0),
             scene_max_s    = cfg_d.get("scene_max_s",    20.0),
-            image_workflow = cfg_d.get("image_workflow", "zit"),
-            video_workflow = cfg_d.get("video_workflow", "ltx_humo"),
+            image_workflow  = cfg_d.get("image_workflow",  "zit"),
+            video_workflow  = cfg_d.get("video_workflow",  "ltx_humo"),
+            humo_resolution = cfg_d.get("humo_resolution", 1280),
         )
 
         sw  = meta.get("seg_weights")

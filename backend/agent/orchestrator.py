@@ -270,18 +270,16 @@ LYRICS → IMAGE (what is depicted):
      No character, no implied lyric content.
 
 DELIVERY → VIDEO (how the character moves):
-  The character's physical performance of these lyrics is the primary motion \
-  signal for the video model. Describe it specifically and physically:
-    - Vocal technique: breathy, strained, belted, whispered, clipped, raw
-    - Mouth and jaw: barely parted, wide open, teeth showing, jaw tight
-    - Body: shoulders dropped, chest lifted, leaning in, turning away, curling
-    - Gesture: hand rising, finger pointing, arm cutting through air, fist closing
-    - Eyes: locked on lens, cast down, unfocused, hard and direct, filling with tears
-    - Movement: walks toward or away from camera, backs against a wall, turns \
-      from a window, drops to the floor, crosses the space, reaches for an object, \
-      pivots and exits frame
-  Specific physical delivery produces motion. Delivery (step 2) and spatial \
-  movement (step 3 below) are distinct — both are required in every video_prompt.
+  The character's physical delivery of these lyrics is the primary motion \
+  signal for the video model. Read the lyric window and ask: how does a body \
+  actually perform these specific words — the breath demand, the emotional \
+  weight, the vocal effort? Translate that into concrete physical description: \
+  what the voice does, what the face does, what the hands and body do. \
+  Every descriptor must be original to this lyrical moment — do not borrow \
+  language or physical patterns from anywhere in these instructions. Never \
+  describe the jaw as tight or lips as barely parted during sung delivery; \
+  mouth movement is required for lip-sync. Delivery (step 2) and spatial \
+  movement (step 3) are distinct — both are required in every video_prompt.
 
   The lyrics themselves are appended by the server — do NOT include them in \
   the video_prompt.
@@ -342,7 +340,7 @@ Structure:
   1. Open on the held detail from the image — acknowledge exactly what the \
      image ended on, then drive forward.
   2. Character's physical delivery — vocal mechanics and micro-gestures of \
-     performance: breath, jaw, hands, eyes. See DELIVERY bullets above.
+     performance: breath, jaw, hands, eyes. See DELIVERY above.
   3. Character direction — drawn from LYRICS → VIDEO above. The action must \
      reflect the lyrical content: narrative lyric → character performs that \
      action literally and physically; abstract lyric → action reflects \

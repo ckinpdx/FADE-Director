@@ -94,6 +94,25 @@ button {
   cursor: default;
 }
 
+.mode-card--disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.mode-card-badge {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(122, 122, 138, 0.15);
+  color: var(--muted);
+  border-radius: 4px;
+  padding: 2px 7px;
+  vertical-align: middle;
+}
+
 .mode-card-icon {
   font-size: 28px;
   line-height: 1;
