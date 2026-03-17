@@ -136,9 +136,11 @@ SCENE_MAX_SECONDS=20
 
 ## Running
 
-Make sure ComfyUI and llama-swap are running, then double-click `run_dev.bat`.
+**First time / after dependency changes:** double-click `run_dev.bat`. It installs everything automatically (Python venv, CUDA torch, npm packages) and starts the server.
 
-It will also start llama-swap automatically if it isn't already running (via Windows Scheduled Task).
+**Subsequent runs:** double-click `run.bat` for a faster start — skips all installs, just builds the frontend and starts the backend.
+
+Both scripts start llama-swap automatically if it isn't already running (via Windows Scheduled Task).
 
 Open `http://localhost:8001`.
 

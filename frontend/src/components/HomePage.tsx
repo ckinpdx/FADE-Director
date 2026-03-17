@@ -30,7 +30,7 @@ function phaseLabel(phase: string, n: number): string {
   }
 }
 
-export function HomePage({ onMakeVideo, onWriteSong, onMakeSong, onResume }: Props) {
+export function HomePage({ onMakeVideo, onWriteSong, onResume }: Props) {
   const [projects,  setProjects]  = useState<Project[]>([])
   const [resuming,  setResuming]  = useState<string | null>(null)
   const [resumeErr, setResumeErr] = useState<string | null>(null)

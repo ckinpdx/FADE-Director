@@ -209,21 +209,13 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
           >
             LTX
           </button>
-          <button
-            type="button"
-            className={`orientation-btn ${videoWorkflow === 'humo' ? 'orientation-btn--active' : ''}`}
-            onClick={() => setVideoWorkflow('humo')}
-            disabled={uploading}
-          >
-            HuMo
-          </button>
         </div>
       </div>
 
-      {/* HuMo resolution (only for HuMo-involved workflows) */}
+      {/* Final resolution (only for HuMo-involved workflows) */}
       {(videoWorkflow === 'ltx_humo' || videoWorkflow === 'humo') && (
         <div className="lyrics-field">
-          <label className="lyrics-label">HuMo Resolution</label>
+          <label className="lyrics-label">Final Resolution</label>
           <div className="orientation-toggle">
             {([1280, 1536, 1920] as const).map(res => (
               <button
