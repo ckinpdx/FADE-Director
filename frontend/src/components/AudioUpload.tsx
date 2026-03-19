@@ -25,7 +25,7 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
   const [lyrics,       setLyrics]       = useState('')
   const [savePath,     setSavePath]     = useState<string | null>(null)
   const [orientation,  setOrientation]  = useState<'landscape' | 'portrait'>('landscape')
-  const [imageWorkflow,  setImageWorkflow]  = useState<'zit' | 'qie'>('zit')
+  const [imageWorkflow,  setImageWorkflow]  = useState('zit')
   const [videoWorkflow,  setVideoWorkflow]  = useState('ltx_humo')
   const [humoResolution, setHumoResolution] = useState<1280 | 1536 | 1920>(1280)
   const [workflows,      setWorkflows]      = useState<Workflows>(FALLBACK_WORKFLOWS)

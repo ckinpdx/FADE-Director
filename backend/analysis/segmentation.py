@@ -202,26 +202,40 @@ def _snap_to_lyrics(
     if not clean:
         return cut_times
 
-    gap_mids: list[float] = []
+    sentence_mids: list[float] = []
+    all_gap_mids:  list[float] = []
     for i in range(len(clean) - 1):
         end_i   = clean[i]["end_s"]
         start_n = clean[i + 1]["start_s"]
         if start_n > end_i:
-            gap_mids.append((end_i + start_n) / 2.0)
+            mid = (end_i + start_n) / 2.0
+            all_gap_mids.append(mid)
+            if clean[i]["word"].rstrip().endswith(('.', '!', '?')):
+                sentence_mids.append(mid)
 
-    if not gap_mids:
+    if not all_gap_mids:
         return cut_times
 
-    gap_arr   = np.array(gap_mids, dtype=np.float64)
+    all_arr  = np.array(all_gap_mids, dtype=np.float64)
+    sent_arr = np.array(sentence_mids, dtype=np.float64) if sentence_mids else None
     snapped   = list(cut_times)
     distances = [0.0] * len(cut_times)
 
     for idx, t in enumerate(cut_times):
-        dists = np.abs(gap_arr - t)
+        # Prefer sentence-end gaps; fall back to any gap
+        if sent_arr is not None:
+            dists = np.abs(sent_arr - t)
+            best  = int(np.argmin(dists))
+            dist  = float(dists[best])
+            if dist <= tolerance_s:
+                snapped[idx]   = round(float(sent_arr[best]), 3)
+                distances[idx] = dist
+                continue
+        dists = np.abs(all_arr - t)
         best  = int(np.argmin(dists))
         dist  = float(dists[best])
         if dist <= tolerance_s:
-            snapped[idx]   = round(float(gap_arr[best]), 3)
+            snapped[idx]   = round(float(all_arr[best]), 3)
             distances[idx] = dist
 
     # Collision resolution: if two snapped cuts are within min_s/2 of each

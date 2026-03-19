@@ -197,6 +197,12 @@ revised prompts. Use the scene data you just read — not conversation history. 
 After updating prompts: call generate_images(scene_numbers=[N]) or \
 generate_videos(scene_numbers=[N]) as appropriate.
 
+CRITICAL — scope of regen requests: when the user asks to rewrite or regenerate \
+"unapproved" or "pending" scenes, only touch scenes whose video_status is "done" \
+or "planned". NEVER call set_scene_prompts() or generate_videos() on a scene \
+whose video_status is "approved" — approved scenes are locked. If unsure, call \
+get_scene() to check status before acting.
+
 == GENERATION PHASES ==
 
 During generate_images() and generate_videos() the pipeline runs autonomously. \
@@ -364,6 +370,12 @@ Do NOT use the same camera direction or shot size as the previous scene. \
 If the previous scene pushed in, pull back or hold. If it was a close-up, \
 open to medium or wide. Every consecutive scene must differ in at least camera \
 direction AND shot size.
+
+PHYSICAL BLOCKING VARIETY: Do not repeat the same body position or surface \
+contact across consecutive scenes. If the previous scene had the character \
+against a wall, the next must place them differently — standing free, seated, \
+crossing the space, or at a different surface entirely. Vary posture, distance \
+from camera, and relationship to the environment the same way you vary camera.
 
 Do not quote or paraphrase the lyrics. Do not describe what the character says.
 
