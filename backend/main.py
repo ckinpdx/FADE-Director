@@ -144,6 +144,34 @@ def _slugify(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Workflow discovery
+# ---------------------------------------------------------------------------
+
+@app.get("/workflows")
+async def list_workflows():
+    user_dir = Path("backend/comfyui/workflows/user")
+    image_wfs = [
+        {"id": "zit", "name": "ZIT with Reactor"},
+        {"id": "qie", "name": "Qwen Image Edit"},
+    ]
+    video_wfs = [
+        {"id": "ltx_humo", "name": "LTX with HuMo"},
+        {"id": "ltx",      "name": "LTX"},
+    ]
+    if user_dir.exists():
+        for wf_file in sorted(user_dir.glob("*.json")):
+            stem = wf_file.stem
+            if not (user_dir / f"{stem}.nodemap.json").exists():
+                continue
+            entry = {"id": f"user/{stem}", "name": stem}
+            if "_i2v" in stem:
+                video_wfs.append(entry)
+            elif "_t2i" in stem:
+                image_wfs.append(entry)
+    return {"image": image_wfs, "video": video_wfs}
+
+
+# ---------------------------------------------------------------------------
 # Session lifecycle
 # ---------------------------------------------------------------------------
 
@@ -181,8 +209,8 @@ async def create_session(
 
     orient = orientation or config.DEFAULT_ORIENTATION
     w, h   = _orientation_dims(orient)
-    iwf  = image_workflow  if image_workflow  in ("zit", "qie")              else "zit"
-    vwf  = video_workflow  if video_workflow  in ("ltx_humo", "ltx", "humo") else "ltx_humo"
+    iwf  = image_workflow  if (image_workflow  in ("zit", "qie")              or (image_workflow  or "").startswith("user/")) else "zit"
+    vwf  = video_workflow  if (video_workflow  in ("ltx_humo", "ltx", "humo") or (video_workflow  or "").startswith("user/")) else "ltx_humo"
     hres = humo_resolution if humo_resolution in (1280, 1536, 1920)          else 1280
     cfg = SessionConfig(
         width           = w,

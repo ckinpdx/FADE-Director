@@ -674,7 +674,11 @@ async def _generate_images(session: Session, push: PushFn,
     cfg  = session.config
     sb   = data.get("style_bible", {})
 
-    if cfg.image_workflow == "qie":
+    if cfg.image_workflow.startswith("user/"):
+        stem     = cfg.image_workflow[5:]
+        t2i_wf   = _json.load(open(f"backend/comfyui/workflows/user/{stem}.json",         encoding="utf-8"))
+        node_map = _json.load(open(f"backend/comfyui/workflows/user/{stem}.nodemap.json"))
+    elif cfg.image_workflow == "qie":
         t2i_wf   = _json.load(open("backend/comfyui/workflows/qie_t2i.json",  encoding="utf-8"))
         node_map = _json.load(open("backend/comfyui/node_map_qie.json"))
     else:
@@ -809,7 +813,11 @@ async def _generate_videos(session: Session, push: PushFn,
     from backend.comfyui import client as comfy
 
     data = session.load_prompts()
-    if workflow == "ltx":
+    if workflow.startswith("user/"):
+        stem     = workflow[5:]
+        i2v_wf   = _json.load(open(f"backend/comfyui/workflows/user/{stem}.json",         encoding="utf-8"))
+        node_map = _json.load(open(f"backend/comfyui/workflows/user/{stem}.nodemap.json"))
+    elif workflow == "ltx":
         i2v_wf   = _json.load(open("backend/comfyui/workflows/ltx2_i2v.json",      encoding="utf-8"))
         node_map = _json.load(open("backend/comfyui/node_map_i2v_ltx.json"))
     elif workflow == "humo":
@@ -1155,13 +1163,7 @@ async def generate_images_batch(session: Session, scene_numbers: list[int] | Non
     await _generate_images(session=session, push=push, scene_numbers=scene_numbers)
 
 async def generate_videos_batch(session: Session, scene_numbers: list[int] | None, push: PushFn) -> None:
-    vwf = session.config.video_workflow
-    if vwf == "ltx":
-        await _generate_videos(session=session, push=push, scene_numbers=scene_numbers, workflow="ltx")
-    elif vwf == "humo":
-        await _generate_videos(session=session, push=push, scene_numbers=scene_numbers, workflow="humo")
-    else:
-        await _generate_videos(session=session, push=push, scene_numbers=scene_numbers, workflow="ltx_humo")
+    await _generate_videos(session=session, push=push, scene_numbers=scene_numbers, workflow=session.config.video_workflow)
 
 
 async def dispatch(

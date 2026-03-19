@@ -148,13 +148,24 @@ Open `http://localhost:8001`.
 
 ## Using your own workflows
 
-FADE patches specific nodes in each workflow at runtime. To use your own ComfyUI workflow, you tell FADE which nodes to patch by giving them special titles in the ComfyUI node editor, then re-exporting and running a script.
+FADE patches specific nodes in each workflow at runtime. User-provided workflows live in `backend/comfyui/workflows/user/` and appear automatically as buttons on the upload screen — no code changes needed.
+
+### Naming convention
+
+Each workflow requires two files with the same stem in the `user/` folder:
+
+- `YourName_t2i.json` + `YourName_t2i.nodemap.json` — image workflow (button label: `YourName_t2i`)
+- `YourName_i2v.json` + `YourName_i2v.nodemap.json` — video workflow (button label: `YourName_i2v`)
+
+The `_t2i` / `_i2v` suffix tells FADE which selector the workflow appears in. The full stem (before `.json`) is used as-is for the button label, so name your files accordingly.
+
+Example stubs showing required nodemap keys are in `user/FADE_t2i.example` and `user/FADE_i2v.example`.
 
 ### Step 1 — Tag your nodes in ComfyUI
 
 Right-click each node → **Title** and set the exact title string listed below. Only the title needs to change — the node type, connections, and all other settings stay as-is.
 
-**Image workflow (`ltx2_t2i.json`) — 4 required:**
+**Image workflow — 4 required:**
 
 | Title | Node to tag |
 |---|---|
@@ -163,7 +174,7 @@ Right-click each node → **Title** and set the exact title string listed below.
 | `FADE: Dimensions` | Empty latent image node (must have `width` + `height` inputs) |
 | `FADE: Save` | SaveImage node |
 
-**Video workflow (`ltx2_i2v_humo.json`) — 9 required, 6 optional:**
+**Video workflow — 9 required, 6 optional:**
 
 | Title | Node to tag |
 |---|---|
@@ -192,21 +203,25 @@ Optional — only tag if present in your workflow:
 
 In ComfyUI: **Settings → Enable Dev Mode Options**, then use the **Save (API Format)** button (not the regular Save). This produces the JSON structure FADE reads.
 
-### Step 3 — Drop files and rebuild the node map
+### Step 3 — Build the node map and drop files
+
+Run `build_node_map.py` against your exported workflow to generate the nodemap file:
 
 ```
-backend/comfyui/workflows/
-    ltx2_t2i.json         ← your exported image workflow
-    ltx2_i2v_humo.json    ← your exported video workflow
+python backend/comfyui/build_node_map.py path/to/YourName_i2v.json
 ```
 
-Then run:
+This validates all required titles are present and writes the nodemap. It prints each matched node with its ID and class type so you can verify the right nodes were found.
+
+Then drop both files into `backend/comfyui/workflows/user/`:
 
 ```
-python scripts/build_node_map.py
+backend/comfyui/workflows/user/
+    YourName_i2v.json
+    YourName_i2v.nodemap.json
 ```
 
-This scans both files, validates all required titles are present, and writes `backend/comfyui/node_map_t2i.json` + `backend/comfyui/node_map_i2v.json`. It prints each matched node with its ID and class type so you can verify the right nodes were found. Re-run any time you update a workflow.
+Restart FADE and the workflow appears as a new button on the upload screen.
 
 ---
 

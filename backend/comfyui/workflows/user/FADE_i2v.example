@@ -1,0 +1,16 @@
+{
+  "_readme": [
+    "Copy this file to YourName_i2v.nodemap.json and place your ComfyUI API export",
+    "alongside it as YourName_i2v.json. The filename stem becomes the button label.",
+    "Run backend/comfyui/build_node_map.py to find node IDs from your workflow export.",
+    "Required keys: video_prompt, start_frame, audio_file, frame_count, save.",
+    "Optional: width, height, ltx_seed, negative_prompt, audio_start, humo_long_edge, etc."
+  ],
+  "video_prompt": "NODE_ID",
+  "start_frame":  "NODE_ID",
+  "audio_file":   "NODE_ID",
+  "frame_count":  "NODE_ID",
+  "save":         "NODE_ID",
+  "width":        "NODE_ID",
+  "height":       "NODE_ID"
+}

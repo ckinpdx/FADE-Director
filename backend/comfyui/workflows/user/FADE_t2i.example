@@ -1,0 +1,15 @@
+{
+  "_readme": [
+    "Copy this file to YourName_t2i.nodemap.json and place your ComfyUI API export",
+    "alongside it as YourName_t2i.json. The filename stem becomes the button label.",
+    "Run backend/comfyui/build_node_map.py to find node IDs from your workflow export.",
+    "Required keys: positive, negative, width, height, seed, save.",
+    "Optional: any extra node the workflow needs patched."
+  ],
+  "positive": "NODE_ID",
+  "negative": "NODE_ID",
+  "width":    "NODE_ID",
+  "height":   "NODE_ID",
+  "seed":     "NODE_ID",
+  "save":     "NODE_ID"
+}

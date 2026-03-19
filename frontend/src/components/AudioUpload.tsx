@@ -1,5 +1,13 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { DragEvent, ChangeEvent } from 'react'
+
+interface WorkflowEntry { id: string; name: string }
+interface Workflows { image: WorkflowEntry[]; video: WorkflowEntry[] }
+
+const FALLBACK_WORKFLOWS: Workflows = {
+  image: [{ id: 'zit', name: 'ZIT with Reactor' }, { id: 'qie', name: 'Qwen Image Edit' }],
+  video: [{ id: 'ltx_humo', name: 'LTX with HuMo' }, { id: 'ltx', name: 'LTX' }],
+}
 
 interface Props {
   onBack:         () => void
@@ -18,8 +26,13 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
   const [savePath,     setSavePath]     = useState<string | null>(null)
   const [orientation,  setOrientation]  = useState<'landscape' | 'portrait'>('landscape')
   const [imageWorkflow,  setImageWorkflow]  = useState<'zit' | 'qie'>('zit')
-  const [videoWorkflow,  setVideoWorkflow]  = useState<'ltx_humo' | 'ltx' | 'humo'>('ltx_humo')
+  const [videoWorkflow,  setVideoWorkflow]  = useState('ltx_humo')
   const [humoResolution, setHumoResolution] = useState<1280 | 1536 | 1920>(1280)
+  const [workflows,      setWorkflows]      = useState<Workflows>(FALLBACK_WORKFLOWS)
+
+  useEffect(() => {
+    fetch('/workflows').then(r => r.json()).then(setWorkflows).catch(() => {})
+  }, [])
 
   const audioInputRef = useRef<HTMLInputElement>(null)
   const refInputRef   = useRef<HTMLInputElement>(null)
@@ -170,22 +183,17 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
       <div className="lyrics-field">
         <label className="lyrics-label">Image Workflow</label>
         <div className="orientation-toggle">
-          <button
-            type="button"
-            className={`orientation-btn ${imageWorkflow === 'zit' ? 'orientation-btn--active' : ''}`}
-            onClick={() => setImageWorkflow('zit')}
-            disabled={uploading}
-          >
-            ZIT with Reactor
-          </button>
-          <button
-            type="button"
-            className={`orientation-btn ${imageWorkflow === 'qie' ? 'orientation-btn--active' : ''}`}
-            onClick={() => setImageWorkflow('qie')}
-            disabled={uploading}
-          >
-            Qwen Image Edit
-          </button>
+          {workflows.image.map(wf => (
+            <button
+              key={wf.id}
+              type="button"
+              className={`orientation-btn ${imageWorkflow === wf.id ? 'orientation-btn--active' : ''}`}
+              onClick={() => setImageWorkflow(wf.id)}
+              disabled={uploading}
+            >
+              {wf.name}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -193,22 +201,17 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
       <div className="lyrics-field">
         <label className="lyrics-label">Video Workflow</label>
         <div className="orientation-toggle">
-          <button
-            type="button"
-            className={`orientation-btn ${videoWorkflow === 'ltx_humo' ? 'orientation-btn--active' : ''}`}
-            onClick={() => setVideoWorkflow('ltx_humo')}
-            disabled={uploading}
-          >
-            LTX with HuMo
-          </button>
-          <button
-            type="button"
-            className={`orientation-btn ${videoWorkflow === 'ltx' ? 'orientation-btn--active' : ''}`}
-            onClick={() => setVideoWorkflow('ltx')}
-            disabled={uploading}
-          >
-            LTX
-          </button>
+          {workflows.video.map(wf => (
+            <button
+              key={wf.id}
+              type="button"
+              className={`orientation-btn ${videoWorkflow === wf.id ? 'orientation-btn--active' : ''}`}
+              onClick={() => setVideoWorkflow(wf.id)}
+              disabled={uploading}
+            >
+              {wf.name}
+            </button>
+          ))}
         </div>
       </div>
 

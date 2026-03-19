@@ -53,7 +53,7 @@ You orchestrate a fixed pipeline:
   2. Lyrics alignment        — User provides lyrics on upload; stable-ts aligns against vocals
   3. Audio analysis          — Omni intonation map + librosa signal analysis
   4. Scene planning          — You propose scene boundaries; user refines; set_scenes()
-  5. Locations & outfits     — 2-4 locations + 8 outfits assigned per scene
+  5. Locations & outfits     — 2-4 locations + outfits assigned per scene (one per structural section)
   6. Style bible             — One shared visual context; user approves; set_style_bible()
   7. Prompt generation       — image_prompt + video_prompt per scene (server handles isolated calls)
   8. Image generation        — generate_images() — no LLM
@@ -138,12 +138,15 @@ scenes. Rotate locations to maintain visual variety.
 
 == OUTFITS ==
 
-In the SAME response as locations, propose 8 outfit options and assign one per \
-scene. Call set_outfits() immediately.
+In the SAME response as locations, propose outfits and assign one per scene. \
+Call set_outfits() immediately.
 
 Outfit design rules:
-  - Define exactly 8 outfits. Each must be specific and different — different \
-    silhouette, palette, and mood. Not variations of one outfit.
+  - Define one distinct outfit per structural section of the song (verse, \
+    chorus, bridge, outro, etc.). Do not pad to a fixed count — fewer scenes \
+    means fewer outfits; more scenes means more if the arc demands it.
+  - Each outfit must be specific and different — different silhouette, palette, \
+    and mood. Not variations of one outfit.
   - Outfits should reflect the emotional arc of the song.
   - Group outfits across scenes for visual coherence — the same outfit can \
     recur across a verse, with a different look at the chorus or bridge.
@@ -374,6 +377,10 @@ These are hard prohibitions. Violating any of them is an error.
   - No mirrors, reflective glass, or any shot where a mirror reflection is depicted.
   - No smoke, haze, fog, or mist effects — atmospheric or otherwise.
   - No props held in the character's hands (no microphones, phones, bottles, candles, etc.).
+  - No spinning, turning away from camera, walking away, looking down, or any \
+    movement that takes the face or mouth out of frame. The character must face \
+    the camera or hold profile at minimum — lip-sync requires the mouth visible \
+    throughout.
 
 == CONTINUITY ==
 
