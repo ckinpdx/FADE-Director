@@ -5,7 +5,7 @@
     },
     "class_type": "PrimitiveInt",
     "_meta": {
-      "title": "Width"
+      "title": "FADE: Width"
     }
   },
   "426": {
@@ -14,7 +14,7 @@
     },
     "class_type": "PrimitiveInt",
     "_meta": {
-      "title": "Height"
+      "title": "FADE: Height"
     }
   },
   "490": {
@@ -82,7 +82,7 @@
     },
     "class_type": "VHS_LoadAudioUpload",
     "_meta": {
-      "title": "Load Audio (Upload)🎥🅥🅗🅢"
+      "title": "FADE: Audio File"
     }
   },
   "783": {
@@ -341,7 +341,10 @@
   },
   "1340": {
     "inputs": {
-      "noise_seed": 84722529132381
+      "noise_seed": [
+        "1396",
+        0
+      ]
     },
     "class_type": "RandomNoise",
     "_meta": {
@@ -450,7 +453,10 @@
   },
   "1347": {
     "inputs": {
-      "noise_seed": 481556993273894
+      "noise_seed": [
+        "1396",
+        0
+      ]
     },
     "class_type": "RandomNoise",
     "_meta": {
@@ -636,33 +642,13 @@
       "title": "LTXVSeparateAVLatent"
     }
   },
-  "1358": {
-    "inputs": {
-      "tile_size": 1280,
-      "overlap": 128,
-      "temporal_size": 32,
-      "temporal_overlap": 16,
-      "samples": [
-        "1357",
-        0
-      ],
-      "vae": [
-        "490",
-        0
-      ]
-    },
-    "class_type": "VAEDecodeTiled",
-    "_meta": {
-      "title": "VAE Decode (Tiled)"
-    }
-  },
   "1359": {
     "inputs": {
       "image": "scene_1.png"
     },
     "class_type": "LoadImage",
     "_meta": {
-      "title": "Load Image"
+      "title": "FADE: Start Frame"
     }
   },
   "1360": {
@@ -671,7 +657,7 @@
     },
     "class_type": "PrimitiveInt",
     "_meta": {
-      "title": "FRAMES TO GENERATE"
+      "title": "FADE: Frame Count"
     }
   },
   "1379": {
@@ -680,7 +666,7 @@
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
-      "title": "POSITIVE PROMPT"
+      "title": "FADE: Positive Prompt"
     }
   },
   "1380": {
@@ -689,7 +675,7 @@
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
-      "title": "NEGATIVE PROMPT"
+      "title": "FADE: Negative Prompt"
     }
   },
   "1381": {
@@ -704,14 +690,14 @@
     },
     "class_type": "SaveVideo",
     "_meta": {
-      "title": "Save Video"
+      "title": "FADE: Save"
     }
   },
   "1382": {
     "inputs": {
       "fps": 25,
       "images": [
-        "1358",
+        "1395",
         0
       ],
       "audio": [
@@ -722,6 +708,31 @@
     "class_type": "CreateVideo",
     "_meta": {
       "title": "Create Video"
+    }
+  },
+  "1395": {
+    "inputs": {
+      "samples": [
+        "1357",
+        0
+      ],
+      "vae": [
+        "490",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "1396": {
+    "inputs": {
+      "value": 0
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "FADE: Seed"
     }
   }
 }

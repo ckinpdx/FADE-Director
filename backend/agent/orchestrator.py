@@ -285,10 +285,13 @@ DELIVERY → VIDEO (how the character moves):
   weight, the vocal effort? Translate that into concrete physical description: \
   what the voice does, what the face does, what the hands and body do. \
   Every descriptor must be original to this lyrical moment — do not borrow \
-  language or physical patterns from anywhere in these instructions. Never \
-  describe the jaw as tight or lips as barely parted during sung delivery; \
-  mouth movement is required for lip-sync. Delivery (step 2) and spatial \
-  movement (step 3) are distinct — both are required in every video_prompt.
+  language or physical patterns from anywhere in these instructions. \
+  Mouth movement is required for lip-sync — describe the jaw as open, \
+  dropping, or working through each word, never as clenching, tightening, \
+  or pressing shut. High intensity is expressed through open-throat \
+  projection and wide articulation, not through jaw tension. Delivery \
+  (step 2) and spatial movement (step 3) are distinct — both are required \
+  in every video_prompt.
 
   The lyrics themselves are appended by the server — do NOT include them in \
   the video_prompt.
@@ -309,6 +312,13 @@ LYRICS → VIDEO (what happens in the clip):
 == IMAGE PROMPT ==
 
 Target: 50-80 words. One to three focused sentences.
+
+Each image is generated in complete isolation — the model has no knowledge \
+of any other scene. Every descriptor must be absolute and self-contained. \
+Never use comparative or relative language ("more disheveled", "now \
+blood-splattered", "increasingly", "darker than before") — the model has \
+no reference point for "more" or "now". Describe exactly what is present \
+in this scene as if it is the only scene.
 
 The character description (appearance: skin, hair, eyes, build) is prepended \
 by the pipeline. Do not repeat it. Write as if the character is already known.

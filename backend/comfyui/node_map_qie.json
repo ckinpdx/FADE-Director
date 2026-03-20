@@ -1,9 +1,9 @@
 {
-  "positive":   "1501",
-  "negative":   "1556",
-  "seed":       "1458",
-  "width":      "1554",
-  "height":     "1555",
-  "load_image": "1522",
-  "save":       "1552"
+  "positive": "1501",
+  "negative_prompt": "1556",
+  "seed": "1560",
+  "width": "1554",
+  "height": "1555",
+  "save": "1552",
+  "load_image": "1522"
 }

@@ -147,6 +147,19 @@ def _slugify(name: str) -> str:
 # Workflow discovery
 # ---------------------------------------------------------------------------
 
+@app.get("/workflows/templates")
+async def list_workflow_templates():
+    """List downloadable reference workflow files from workflows_UI/."""
+    ui_dir = Path("backend/comfyui/workflows_UI")
+    if not ui_dir.exists():
+        return {"templates": []}
+    templates = [
+        {"name": f.name, "url": f"/workflow-templates/{f.name}"}
+        for f in sorted(ui_dir.glob("*.json"))
+    ]
+    return {"templates": templates}
+
+
 @app.get("/workflows")
 async def list_workflows():
     user_dir = Path("backend/comfyui/workflows/user")
@@ -1452,6 +1465,15 @@ async def _run_acestep_generation(entry: _AceStepEntry, params: dict) -> None:
         await entry.push("gen_error", {"take_n": take_n, "message": str(exc)})
     finally:
         entry.busy_gen = False
+
+
+# ---------------------------------------------------------------------------
+# Workflow templates (downloadable reference files)
+# ---------------------------------------------------------------------------
+
+_WF_TEMPLATES = Path(__file__).parent / "comfyui" / "workflows_UI"
+if _WF_TEMPLATES.exists():
+    app.mount("/workflow-templates", StaticFiles(directory=str(_WF_TEMPLATES)), name="workflow-templates")
 
 
 # ---------------------------------------------------------------------------

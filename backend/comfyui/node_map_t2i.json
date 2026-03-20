@@ -1,6 +1,8 @@
 {
-  "positive": "149",
-  "seed": "160",
-  "dimensions": "166",
+  "positive": "174",
+  "negative_prompt": "179",
+  "seed": "178",
+  "width": "180",
+  "height": "181",
   "save": "177"
 }

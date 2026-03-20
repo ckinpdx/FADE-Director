@@ -1,0 +1,12 @@
+{
+  "video_prompt":   "630",
+  "negative_prompt":"629",
+  "ltx_seed":       "474",
+  "start_frame":    "465",
+  "audio_file":     "524",
+  "frame_count":    "555",
+  "width":          "627",
+  "height":         "628",
+  "humo_long_edge": "626",
+  "save":           "544"
+}

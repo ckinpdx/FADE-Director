@@ -161,41 +161,51 @@ The `_t2i` / `_i2v` suffix tells FADE which selector the workflow appears in. Th
 
 Example stubs showing required nodemap keys are in `user/FADE_t2i.example` and `user/FADE_i2v.example`.
 
+Reference workflows with all required nodes pre-tagged are available to download from the running service at `http://localhost:8001/workflow-templates/` — open them in ComfyUI to see exactly which nodes carry each title before building your own.
+
 ### Step 1 — Tag your nodes in ComfyUI
 
 Right-click each node → **Title** and set the exact title string listed below. Only the title needs to change — the node type, connections, and all other settings stay as-is.
 
-**Image workflow — 4 required:**
+**Image workflow — 6 required:**
 
 | Title | Node to tag |
 |---|---|
-| `FADE: Positive Prompt` | Main positive CLIPTextEncode |
-| `FADE: Seed` | KSampler or equivalent sampler |
-| `FADE: Dimensions` | Empty latent image node (must have `width` + `height` inputs) |
+| `FADE: Positive Prompt` | PrimitiveStringMultiline — positive text |
+| `FADE: Negative Prompt` | PrimitiveStringMultiline — negative text |
+| `FADE: Seed` | PrimitiveInt — seed value |
+| `FADE: Width` | PrimitiveInt — output width |
+| `FADE: Height` | PrimitiveInt — output height |
 | `FADE: Save` | SaveImage node |
 
-**Video workflow — 9 required, 6 optional:**
+Optional — only tag if present in your workflow:
 
 | Title | Node to tag |
 |---|---|
-| `FADE: Video Prompt` | Positive text primitive or CLIPTextEncode |
+| `FADE: Load Image` | LoadImage — reference image input (QIE-style workflows) |
+
+**Video workflow — 8 required:**
+
+| Title | Node to tag |
+|---|---|
+| `FADE: Positive Prompt` | PrimitiveStringMultiline — positive text |
 | `FADE: Start Frame` | LoadImage (receives the approved PNG from the image phase) |
 | `FADE: Audio File` | VHS_LoadAudioUpload (receives the full session audio file) |
-| `FADE: Audio Start` | PrimitiveFloat — scene start time in seconds |
 | `FADE: Frame Count` | PrimitiveInt — snapped 8k+1 frame count |
 | `FADE: Width` | PrimitiveInt |
 | `FADE: Height` | PrimitiveInt |
-| `FADE: Seed` | RandomNoise or sampler seed node |
+| `FADE: Seed` | PrimitiveInt — seed value |
 | `FADE: Save` | SaveVideo node |
 
 Optional — only tag if present in your workflow:
 
 | Title | Node to tag |
 |---|---|
-| `FADE: Negative Prompt` | Negative text primitive |
-| `FADE: Seed 2` | Second RandomNoise (2-pass LTX workflows) |
+| `FADE: Negative Prompt` | PrimitiveStringMultiline — negative text |
+| `FADE: Audio Start` | PrimitiveFloat — scene start time in seconds (omit if your audio node takes `start_time` directly) |
+| `FADE: Seed 2` | Second PrimitiveInt seed (2-pass workflows) |
 | `FADE: HuMo Seed` | HuMo sampler seed node |
-| `FADE: HuMo Long Edge` | JWImageResizeByLongerSide before HuMo |
+| `FADE: HuMo Long Edge` | PrimitiveInt — HuMo refinement long edge |
 | `FADE: FPS` | CreateVideo fps field |
 | `FADE: FPS Conditioning` | LTXVConditioning frame_rate field |
 

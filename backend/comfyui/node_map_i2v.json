@@ -1,17 +1,12 @@
 {
   "video_prompt": "1379",
-  "negative_prompt": "1380",
+  "start_frame": "1359",
+  "audio_file": "746",
   "frame_count": "1360",
   "width": "425",
   "height": "426",
-  "audio_start": "1383",
-  "humo_long_edge": "1390",
-  "start_frame": "1359",
-  "audio_file": "746",
-  "ltx_seed": "1340",
-  "ltx_seed_2": "1347",
-  "humo_seed": "1368",
-  "create_video": "1382",
-  "ltxv_conditioning": "1333",
-  "save": "1381"
+  "ltx_seed": "1398",
+  "save": "1381",
+  "negative_prompt": "1380",
+  "humo_long_edge": "1390"
 }

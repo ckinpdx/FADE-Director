@@ -1,20 +1,20 @@
 {
   "425": {
     "inputs": {
-      "value": 1080
+      "value": 2560
     },
     "class_type": "PrimitiveInt",
     "_meta": {
-      "title": "Width"
+      "title": "FADE: Width"
     }
   },
   "426": {
     "inputs": {
-      "value": 1920
+      "value": 1440
     },
     "class_type": "PrimitiveInt",
     "_meta": {
-      "title": "Height"
+      "title": "FADE: Height"
     }
   },
   "490": {
@@ -76,16 +76,13 @@
   },
   "746": {
     "inputs": {
-      "audio": "Mirror.wav",
-      "start_time": [
-        "1383",
-        0
-      ],
+      "audio": "Good Boy.wav",
+      "start_time": 11,
       "duration": 0
     },
     "class_type": "VHS_LoadAudioUpload",
     "_meta": {
-      "title": "Load Audio (Upload)🎥🅥🅗🅢"
+      "title": "FADE: Audio File"
     }
   },
   "783": {
@@ -206,7 +203,7 @@
       "gc_collect": true,
       "unload_all_models": true,
       "image_pass": [
-        "1358",
+        "1397",
         0
       ]
     },
@@ -440,7 +437,10 @@
   },
   "1340": {
     "inputs": {
-      "noise_seed": 409640653285542
+      "noise_seed": [
+        "1398",
+        0
+      ]
     },
     "class_type": "RandomNoise",
     "_meta": {
@@ -549,7 +549,10 @@
   },
   "1347": {
     "inputs": {
-      "noise_seed": 448116551009132
+      "noise_seed": [
+        "1398",
+        0
+      ]
     },
     "class_type": "RandomNoise",
     "_meta": {
@@ -735,42 +738,22 @@
       "title": "LTXVSeparateAVLatent"
     }
   },
-  "1358": {
-    "inputs": {
-      "tile_size": 1280,
-      "overlap": 128,
-      "temporal_size": 32,
-      "temporal_overlap": 16,
-      "samples": [
-        "1357",
-        0
-      ],
-      "vae": [
-        "490",
-        0
-      ]
-    },
-    "class_type": "VAEDecodeTiled",
-    "_meta": {
-      "title": "VAE Decode (Tiled)"
-    }
-  },
   "1359": {
     "inputs": {
-      "image": "selfie_00037_.png"
+      "image": "scene_1.png"
     },
     "class_type": "LoadImage",
     "_meta": {
-      "title": "Load Image"
+      "title": "FADE: Start Frame"
     }
   },
   "1360": {
     "inputs": {
-      "value": 241
+      "value": 81
     },
     "class_type": "PrimitiveInt",
     "_meta": {
-      "title": "FRAMES TO GENERATE"
+      "title": "FADE: Frame Count"
     }
   },
   "1361": {
@@ -860,26 +843,6 @@
       "title": "Get Image Size & Count"
     }
   },
-  "1367": {
-    "inputs": {
-      "tile_size": 512,
-      "overlap": 64,
-      "temporal_size": 192,
-      "temporal_overlap": 16,
-      "samples": [
-        "1368",
-        0
-      ],
-      "vae": [
-        "1027",
-        0
-      ]
-    },
-    "class_type": "VAEDecodeTiled",
-    "_meta": {
-      "title": "VAE Decode (Tiled)"
-    }
-  },
   "1368": {
     "inputs": {
       "eta": 0.85,
@@ -889,7 +852,10 @@
       "steps_to_run": -1,
       "denoise": 1,
       "cfg": 1,
-      "seed": 0,
+      "seed": [
+        "1398",
+        0
+      ],
       "sampler_mode": "standard",
       "bongmath": true,
       "model": [
@@ -905,7 +871,7 @@
         1
       ],
       "latent_image": [
-        "1375",
+        "1396",
         0
       ],
       "sigmas": [
@@ -979,7 +945,7 @@
   },
   "1371": {
     "inputs": {
-      "context_length": 77,
+      "context_length": 65,
       "context_overlap": 25,
       "context_schedule": "standard_static",
       "context_stride": 1,
@@ -990,7 +956,7 @@
       "split_conds_to_windows": true,
       "explicit_cond_mapping": "",
       "model": [
-        "1030",
+        "1393",
         0
       ]
     },
@@ -1045,26 +1011,6 @@
       "title": "Image Resize by Longer Side"
     }
   },
-  "1375": {
-    "inputs": {
-      "tile_size": 512,
-      "overlap": 64,
-      "temporal_size": 192,
-      "temporal_overlap": 16,
-      "pixels": [
-        "1378",
-        0
-      ],
-      "vae": [
-        "1027",
-        0
-      ]
-    },
-    "class_type": "VAEEncodeTiled",
-    "_meta": {
-      "title": "VAE Encode (Tiled)"
-    }
-  },
   "1376": {
     "inputs": {
       "model": [
@@ -1116,20 +1062,20 @@
   },
   "1379": {
     "inputs": {
-      "value": "the woman sings"
+      "value": "a scene from a music video, Open on her hand resting on the polished chrome table edge, fingers splayed and still. She shifts her weight between knee-high boots, smiling and vocalizing. Low energy means minimal physical delivery — her chest rises with slow breath, jaw tight, eyes scanning the empty club like she owns it. The camera holds static, shallow depth of field keeping her face sharp while leather booths and neon signs blur behind. A single neon sign flickers overhead, casting pink and blue across her platinum hair.\n"
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
-      "title": "POSITIVE PROMPT"
+      "title": "FADE: Positive Prompt"
     }
   },
   "1380": {
     "inputs": {
-      "value": "microphone"
+      "value": "cartoon, illustration, watermark, text, logo, blurry, low resolution, deformed hands, extra fingers, distorted face, bad anatomy, oversaturated, washed out, grainy, pixelated\n"
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
-      "title": "NEGATIVE PROMPT"
+      "title": "FADE: Negative Prompt"
     }
   },
   "1381": {
@@ -1137,7 +1083,6 @@
       "filename_prefix": "videoAPI/ComfyUI",
       "format": "mp4",
       "codec": "h264",
-      "video-preview": "",
       "video": [
         "1382",
         0
@@ -1145,14 +1090,14 @@
     },
     "class_type": "SaveVideo",
     "_meta": {
-      "title": "Save Video"
+      "title": "FADE: Save"
     }
   },
   "1382": {
     "inputs": {
       "fps": 25,
       "images": [
-        "1367",
+        "1395",
         0
       ],
       "audio": [
@@ -1165,22 +1110,84 @@
       "title": "Create Video"
     }
   },
-  "1383": {
-    "inputs": {
-      "value": 35
-    },
-    "class_type": "PrimitiveFloat",
-    "_meta": {
-      "title": "AUDIO START TIME BY 0.01"
-    }
-  },
   "1390": {
     "inputs": {
-      "value": 1152
+      "value": 1920
     },
     "class_type": "PrimitiveInt",
     "_meta": {
-      "title": "HuMo Long Edge"
+      "title": "FADE: HuMo Long Edge"
+    }
+  },
+  "1393": {
+    "inputs": {
+      "lora_name": "FaceDetailerV1.safetensors",
+      "strength_model": 0.6,
+      "model": [
+        "1030",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "1395": {
+    "inputs": {
+      "samples": [
+        "1368",
+        0
+      ],
+      "vae": [
+        "1027",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "1396": {
+    "inputs": {
+      "pixels": [
+        "1378",
+        0
+      ],
+      "vae": [
+        "1027",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "1397": {
+    "inputs": {
+      "samples": [
+        "1357",
+        0
+      ],
+      "vae": [
+        "490",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "1398": {
+    "inputs": {
+      "value": 0
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "FADE: Seed"
     }
   }
 }

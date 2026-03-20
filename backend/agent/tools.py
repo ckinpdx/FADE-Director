@@ -733,29 +733,23 @@ async def _generate_images(session: Session, push: PushFn,
         positive   = f"{consistent}\n{scene['image_prompt']}".strip() if consistent else scene['image_prompt']
         save_key = f"sessions/{session.session_id}/images/scene_{n}"
 
+        negative = cfg.base_negative + ("\n" + sb.get("negative", "")).strip()
+        patches = {
+            node_map["positive"]:        {"value": positive},
+            node_map["negative_prompt"]: {"value": negative},
+            node_map["seed"]:            {"value": scene["seed"]},
+            node_map["width"]:           {"value": cfg.width},
+            node_map["height"]:          {"value": cfg.height},
+            node_map["save"]:            {"filename_prefix": save_key},
+        }
         if cfg.image_workflow == "qie":
-            negative = cfg.base_negative + ("\n" + sb.get("negative", "")).strip()
-            patches = {
-                node_map["positive"]: {"value": positive},
-                node_map["negative"]: {"value": negative},
-                node_map["seed"]:     {"seed": scene["seed"]},
-                node_map["width"]:    {"value": cfg.width},
-                node_map["height"]:   {"value": cfg.height},
-                node_map["save"]:     {"filename_prefix": save_key},
-            }
             if session.reference_image_path and session.reference_image_path.exists():
                 ref_fname = comfy.stage_image(
                     session.reference_image_path,
                     f"session_{session.session_id}_ref.png",
                 )
-                patches[node_map["load_image"]] = {"image": ref_fname}
-        else:
-            patches = {
-                node_map["positive"]:   {"text": positive},
-                node_map["seed"]:       {"seed": scene["seed"]},
-                node_map["dimensions"]: {"width": cfg.width, "height": cfg.height},
-                node_map["save"]:       {"filename_prefix": save_key},
-            }
+                if "load_image" in node_map:
+                    patches[node_map["load_image"]] = {"image": ref_fname}
 
         session.update_scene(n, {"image_status": "generating"})
         await push("scene_update", {"scene_index": n, "scene": session.get_scene(n)})
@@ -900,11 +894,11 @@ async def _generate_videos(session: Session, push: PushFn,
             fc = max(fc, 81)
 
         patches = {
-            node_map["video_prompt"]: {"value": scene["video_prompt"]},
-            node_map["start_frame"]:  {"image": img_filename},
-            node_map["audio_file"]:   audio_patch,
-            node_map["frame_count"]:  {"value": fc},
-            node_map["save"]:         {"filename_prefix": save_key},
+            node_map["video_prompt"]:  {"value": scene["video_prompt"]},
+            node_map["start_frame"]:   {"image": img_filename},
+            node_map["audio_file"]:    audio_patch,
+            node_map["frame_count"]:   {"value": fc},
+            node_map["save"]:          {"filename_prefix": save_key},
             **patches_audio_start,
         }
         # LTX dimension + seed patches (absent in HuMo-only)
@@ -912,9 +906,17 @@ async def _generate_videos(session: Session, push: PushFn,
             patches[node_map["width"]]  = {"value": i2v_w}
             patches[node_map["height"]] = {"value": i2v_h}
         if "ltx_seed" in node_map:
-            patches[node_map["ltx_seed"]] = {"noise_seed": scene["seed"]}
+            nid = node_map["ltx_seed"]
+            if i2v_wf.get(nid, {}).get("class_type") == "PrimitiveInt":
+                patches[nid] = {"value": scene["seed"]}
+            else:
+                patches[nid] = {"noise_seed": scene["seed"]}
         if "ltx_seed_2" in node_map:
-            patches[node_map["ltx_seed_2"]] = {"noise_seed": scene["seed"] + 1}
+            nid = node_map["ltx_seed_2"]
+            if i2v_wf.get(nid, {}).get("class_type") == "PrimitiveInt":
+                patches[nid] = {"value": scene["seed"] + 1}
+            else:
+                patches[nid] = {"noise_seed": scene["seed"] + 1}
         if "ltxv_conditioning" in node_map:
             patches[node_map["ltxv_conditioning"]] = {"frame_rate": cfg.fps}
         # Shared negative (PrimitiveStringMultiline)
@@ -923,8 +925,12 @@ async def _generate_videos(session: Session, push: PushFn,
         # HuMo-specific patches
         if "humo_negative" in node_map:
             patches[node_map["humo_negative"]] = {"text": negative}
+        if "humo_negative_str" in node_map:
+            patches[node_map["humo_negative_str"]] = {"String": negative}
         if "humo_seed" in node_map:
             patches[node_map["humo_seed"]] = {"seed": scene["seed"] + 2}
+        if "humo_seed_value" in node_map:
+            patches[node_map["humo_seed_value"]] = {"value": scene["seed"] + 2}
         if "humo_long_edge" in node_map:
             long_edge = 1152 if cfg.orientation == "portrait" else cfg.humo_resolution
             patches[node_map["humo_long_edge"]] = {"value": long_edge}

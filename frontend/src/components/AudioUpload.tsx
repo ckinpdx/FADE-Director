@@ -216,7 +216,7 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
       </div>
 
       {/* Final resolution (only for HuMo-involved workflows) */}
-      {(videoWorkflow === 'ltx_humo' || videoWorkflow === 'humo') && (
+      {videoWorkflow.toLowerCase().includes('humo') && (
         <div className="lyrics-field">
           <label className="lyrics-label">Final Resolution</label>
           <div className="orientation-toggle">

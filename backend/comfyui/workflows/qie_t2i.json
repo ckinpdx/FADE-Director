@@ -1,7 +1,10 @@
 {
   "1458": {
     "inputs": {
-      "seed": 1,
+      "seed": [
+        "1560",
+        0
+      ],
       "steps": 4,
       "cfg": 1,
       "sampler_name": "euler_ancestral",
@@ -81,7 +84,7 @@
   },
   "1501": {
     "inputs": {
-      "value": "Medium shot of woman standing in The Club, black leather harness over bare chest with micro shorts and knee-high boots, dark smoky space with leather booths and neon signs in background, harsh side-light cutting through haze, deep shadow with single key light from above, cold blue ambient glow reflecting off chrome surfaces, one hand resting on polished chrome table edge, fingers splayed and still against the metallic surface."
+      "value": ""
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
@@ -131,7 +134,7 @@
   },
   "1522": {
     "inputs": {
-      "image": "8b9d0e1e-3dae-43d0-83ae-b54be62b669c.png"
+      "image": "2025-10-21-132353__0.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -140,7 +143,7 @@
   },
   "1552": {
     "inputs": {
-      "filename_prefix": "ComfyUI",
+      "filename_prefix": "imageAPI/ComfyUI",
       "images": [
         "1492",
         0
@@ -148,7 +151,7 @@
     },
     "class_type": "SaveImage",
     "_meta": {
-      "title": "FADE: Save Image"
+      "title": "FADE: Save"
     }
   },
   "1553": {
@@ -167,7 +170,7 @@
   },
   "1554": {
     "inputs": {
-      "value": 2048
+      "value": 1152
     },
     "class_type": "PrimitiveInt",
     "_meta": {
@@ -176,7 +179,7 @@
   },
   "1555": {
     "inputs": {
-      "value": 1152
+      "value": 2048
     },
     "class_type": "PrimitiveInt",
     "_meta": {
@@ -190,6 +193,15 @@
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
       "title": "FADE: Negative Prompt"
+    }
+  },
+  "1560": {
+    "inputs": {
+      "value": 0
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "FADE: Seed"
     }
   }
 }
