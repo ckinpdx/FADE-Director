@@ -1,0 +1,13 @@
+{
+  "video_prompt":    "630",
+  "negative_prompt": "629",
+  "start_frame":     "465",
+  "audio_file":      "524",
+  "frame_count":     "555",
+  "humo_long_edge":  "626",
+  "it_width":        "627",
+  "it_height":       "628",
+  "humo_seed":       "474",
+  "create_video":    "542",
+  "save":            "544"
+}

@@ -10,11 +10,13 @@ const FALLBACK_WORKFLOWS: Workflows = {
 }
 
 interface Props {
-  onBack:         () => void
-  onSessionReady: (sessionId: string, filename: string, savePath?: string, orientation?: string) => void
+  onBack:           () => void
+  onSessionReady:   (sessionId: string, filename: string, savePath?: string, orientation?: string) => void
+  prefillAudioUrl?: string
+  prefillLyrics?:   string
 }
 
-export function AudioUpload({ onBack, onSessionReady }: Props) {
+export function AudioUpload({ onBack, onSessionReady, prefillAudioUrl, prefillLyrics }: Props) {
   const [dragging,     setDragging]     = useState(false)
   const [refDragging,  setRefDragging]  = useState(false)
   const [uploading,    setUploading]    = useState(false)
@@ -33,6 +35,24 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
   useEffect(() => {
     fetch('/workflows').then(r => r.json()).then(setWorkflows).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (prefillLyrics) setLyrics(prefillLyrics)
+  }, [prefillLyrics])
+
+  useEffect(() => {
+    if (!prefillAudioUrl) return
+    setUploading(true)
+    fetch(prefillAudioUrl)
+      .then(r => r.blob())
+      .then(blob => {
+        const name = prefillAudioUrl.split('/').pop()?.replace(/\?.*/, '') ?? 'take.wav'
+        const f = new File([blob], name.endsWith('.wav') ? name : name + '.wav', { type: 'audio/wav' })
+        pickAudio(f)
+      })
+      .catch(() => setError('Could not load audio from ACEStep take.'))
+      .finally(() => setUploading(false))
+  }, [prefillAudioUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const audioInputRef = useRef<HTMLInputElement>(null)
   const refInputRef   = useRef<HTMLInputElement>(null)
@@ -55,7 +75,7 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
       form.append('orientation', orientation)
       form.append('image_workflow', imageWorkflow)
       form.append('video_workflow', videoWorkflow)
-      if (videoWorkflow === 'ltx_humo' || videoWorkflow === 'humo')
+      if (workflows.video.find(w => w.id === videoWorkflow)?.humo_resolution)
         form.append('humo_resolution', String(humoResolution))
       if (refFile) form.append('reference', refFile)
 

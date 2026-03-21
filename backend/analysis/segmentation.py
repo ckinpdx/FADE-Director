@@ -2,15 +2,20 @@
 segmentation.py
 Algorithmic scene segmentation using librosa signal analysis.
 
-Three signals are blended into a per-frame "cut salience" curve, then k-1
-peaks are greedily selected to produce k scenes.
+Primary mode (when word timestamps are available):
+  1. Detect instrumental breaks — gaps between sung words longer than
+     instrumental_gap_s become mandatory cut points.
+  2. Greedy fill-in — any segment still exceeding max_s gets additional cuts
+     placed at signal peaks (mel onset + RMS delta + bar grid) within that
+     segment only.
+  3. Lyric snap — greedy fill-in cuts are snapped to the nearest inter-word gap.
 
-  w_structure  — mel-spectral onset strength  (timbral / structural shifts)
-  w_energy     — absolute change in RMS energy (loudness transitions)
-  w_beat       — bar-grid alignment            (cuts that land on bar boundaries)
+Fallback mode (no word timestamps):
+  Classic greedy peak picking on the blended salience curve using k as the
+  target scene count.
 
-Calling segment() with different weights produces different cut placements at
-the same k — this is the "reroll" mechanism. Use random_weights() to resample.
+Reroll varies the blend weights (Dirichlet-sampled) for different cut placement
+at the same k — only meaningful in fallback mode.
 """
 
 from __future__ import annotations
@@ -77,51 +82,51 @@ def segment(
     weights: tuple[float, float, float] | None = None,
     words: list[dict] | None = None,
     lyric_snap_s: float = 0.8,
+    instrumental_gap_s: float = 4.0,
 ) -> list[SegmentResult]:
     """
-    Segment audio into k scenes using a weighted blend of three signals.
+    Segment audio into scenes.
+
+    Primary mode (words provided):
+      Instrumental breaks (word gaps >= instrumental_gap_s) become mandatory cut
+      points. Any segment still over max_s gets additional cuts placed at signal
+      peaks within that segment. Greedy fill-in cuts are lyric-snapped; mandatory
+      cuts are not (they are already positioned inside the silence).
+
+    Fallback mode (no words):
+      Classic greedy peak picking on the blended salience curve, k target scenes.
 
     Args:
-        audio_path:   Path to audio file.
-        k:            Number of scenes. k-1 cuts will be placed.
-        fps:          Frames per second for snap_frames() (typically 25).
-        min_s:        Minimum scene duration in seconds. No cut will be placed
-                      within min_s of another cut or either edge.
-        max_s:        Soft maximum. Any segment exceeding max_s is split at its
-                      midpoint after selection.
-        weights:      (w_structure, w_energy, w_beat). Should sum to ~1.0.
-                      Defaults to default_weights().
-        words:        Aligned word timestamps [{word, start_s, end_s}]. When
-                      provided, each cut is snapped to the nearest inter-word
-                      gap within lyric_snap_s seconds.
-        lyric_snap_s: Tolerance window for lyric gap snapping (default 0.8s).
+        audio_path:         Path to audio file.
+        k:                  Target scene count (fallback mode only).
+        fps:                Frames per second for snap_frames().
+        min_s:              Minimum scene duration in seconds.
+        max_s:              Soft maximum. Segments exceeding it get signal-driven
+                            cuts placed inside them before _enforce_max runs.
+        weights:            (w_structure, w_energy, w_beat). Fallback mode only.
+        words:              Aligned word timestamps [{word, start_s, end_s}].
+        lyric_snap_s:       Snap tolerance for greedy fill-in cuts (0.8s).
+        instrumental_gap_s: Word gap threshold for mandatory cuts (default 4.0s).
 
     Returns:
         List of SegmentResult dicts: {start_s, end_s, frame_count}.
-        frame_count is snapped to the nearest 8k+1 (LTX-2 / HuMo constraint).
+        frame_count snapped to nearest 8k+1 (LTX-2 / HuMo constraint).
     """
     w_struct, w_energy, w_beat = weights or default_weights()
     audio_path = str(Path(audio_path).resolve())
 
-    logger.info(
-        "Segmenting %s → %d scenes (w_struct=%.2f w_energy=%.2f w_beat=%.2f)",
-        audio_path, k, w_struct, w_energy, w_beat,
-    )
-
     y, sr = librosa.load(audio_path, sr=_SR, mono=True)
     duration = librosa.get_duration(y=y, sr=sr)
-    n_frames = 1 + len(y) // _HOP
+    n_frames  = 1 + len(y) // _HOP
 
-    # ── Signal 1: structural — mel onset strength ────────────────────────────
-    mel    = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, hop_length=_HOP)
-    mel_db = librosa.power_to_db(mel, ref=np.max)
+    # ── Always build salience curve (needed for fill-in even in primary mode) ─
+    mel        = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, hop_length=_HOP)
+    mel_db     = librosa.power_to_db(mel, ref=np.max)
     struct_nov = librosa.onset.onset_strength(S=mel_db, sr=sr, hop_length=_HOP)
 
-    # ── Signal 2: dynamic — |Δ RMS| ─────────────────────────────────────────
     rms        = librosa.feature.rms(y=y, hop_length=_HOP)[0]
     energy_nov = np.abs(np.diff(rms, prepend=rms[0]))
 
-    # ── Signal 3: rhythmic — bar grid ───────────────────────────────────────
     _, beat_frames = librosa.beat.beat_track(y=y, sr=sr, units="frames")
     bar_nov = np.zeros(n_frames, dtype=np.float32)
     for i, bf in enumerate(beat_frames):
@@ -129,27 +134,77 @@ def segment(
             bar_nov[bf] = 1.0
     bar_nov = gaussian_filter1d(bar_nov, sigma=3.0)
 
-    # ── Blend ────────────────────────────────────────────────────────────────
-    salience = (
+    salience    = (
         w_struct * _norm(struct_nov, n_frames)
         + w_energy * _norm(energy_nov, n_frames)
         + w_beat   * _norm(bar_nov,    n_frames)
     )
-
-    # Suppress edges so no cut lands within min_s of start/end
-    edge_frames = max(1, int(min_s * sr / _HOP))
-    salience[:edge_frames]  = 0.0
-    salience[-edge_frames:] = 0.0
-
-    # ── Select k-1 peaks ─────────────────────────────────────────────────────
-    min_gap     = max(1, int(min_s * sr / _HOP))
     frame_times = librosa.frames_to_time(np.arange(n_frames), sr=sr, hop_length=_HOP)
-    cut_frames  = _greedy_peaks(salience, k - 1, min_gap)
-    cut_times   = sorted(frame_times[f] for f in cut_frames)
+    min_gap_f   = max(1, int(min_s * sr / _HOP))
 
-    # ── Lyric gap snap ────────────────────────────────────────────────────────
     if words:
-        cut_times = _snap_to_lyrics(cut_times, words, lyric_snap_s, min_s)
+        # ── Primary mode ──────────────────────────────────────────────────────
+        # Step 1: mandatory cuts at instrumental breaks
+        clean = [
+            w for w in words
+            if w["end_s"] > w["start_s"]
+            and not w["word"].startswith(('{', '('))
+        ]
+        mandatory: list[float] = []
+        for i in range(len(clean) - 1):
+            gap_start = clean[i]["end_s"]
+            gap_end   = clean[i + 1]["start_s"]
+            if gap_end - gap_start >= instrumental_gap_s:
+                mid = round((gap_start + gap_end) / 2.0, 3)
+                if min_s <= mid <= duration - min_s:
+                    mandatory.append(mid)
+
+        logger.info(
+            "Segmenting %s → primary mode: %d instrumental breaks",
+            audio_path, len(mandatory),
+        )
+
+        # Step 2: greedy fill-in for segments still over max_s
+        boundaries   = sorted(set([0.0] + mandatory + [duration]))
+        greedy_cuts: list[float] = []
+        for i in range(len(boundaries) - 1):
+            seg_start = boundaries[i]
+            seg_end   = boundaries[i + 1]
+            if seg_end - seg_start <= max_s:
+                continue
+            # mask salience to this segment only, respecting min_s from edges
+            local = salience.copy()
+            sf = int(seg_start * sr / _HOP)
+            ef = min(n_frames, int(seg_end * sr / _HOP))
+            local[:sf] = 0.0
+            local[ef:] = 0.0
+            local[sf:sf + min_gap_f] = 0.0
+            local[max(0, ef - min_gap_f):ef] = 0.0
+            n_cuts = max(1, int((seg_end - seg_start) / max_s))
+            for f in _greedy_peaks(local, n_cuts, min_gap_f):
+                greedy_cuts.append(round(float(frame_times[f]), 3))
+
+        # Step 3: lyric-snap greedy cuts only (mandatory cuts stay put)
+        if greedy_cuts and words:
+            greedy_cuts = _snap_to_lyrics(greedy_cuts, words, lyric_snap_s, min_s)
+
+        cut_times = sorted(mandatory + greedy_cuts)
+        logger.info(
+            "Segmenting %s → %d mandatory + %d fill-in = %d cuts",
+            audio_path, len(mandatory), len(greedy_cuts), len(cut_times),
+        )
+
+    else:
+        # ── Fallback mode: greedy peak picking ────────────────────────────────
+        logger.info(
+            "Segmenting %s → %d scenes fallback (w_struct=%.2f w_energy=%.2f w_beat=%.2f)",
+            audio_path, k, w_struct, w_energy, w_beat,
+        )
+        edge_f = max(1, int(min_s * sr / _HOP))
+        salience[:edge_f]  = 0.0
+        salience[-edge_f:] = 0.0
+        cut_frames = _greedy_peaks(salience, k - 1, min_gap_f)
+        cut_times  = sorted(frame_times[f] for f in cut_frames)
 
     # ── Build segments ────────────────────────────────────────────────────────
     boundaries = [0.0] + list(cut_times) + [duration]

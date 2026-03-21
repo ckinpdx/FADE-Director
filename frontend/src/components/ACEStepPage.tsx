@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface ACEStepPrefill {
+  title:    string
   caption:  string
   bpm:      string
   key:      string
@@ -21,7 +22,7 @@ interface Take {
 
 interface Props {
   onBack:         () => void
-  onSendToFade?:  (videoSessionId: string) => void
+  onSendToFade?:  (audioUrl: string, lyrics: string) => void
   prefill?:       Partial<ACEStepPrefill>
   sessionId?:     string
 }
@@ -29,23 +30,24 @@ interface Props {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function ACEStepPage({ onBack, onSendToFade, prefill, sessionId: resumeId }: Props) {
+  const [title,    setTitle]    = useState(prefill?.title    ?? '')
   const [caption,  setCaption]  = useState(prefill?.caption  ?? '')
   const [bpm,      setBpm]      = useState(prefill?.bpm      ?? '')
   const [key,      setKey]      = useState(prefill?.key      ?? '')
   const [timeSig,  setTimeSig]  = useState(prefill?.timeSig  ?? '')
-  const [duration, setDuration] = useState(prefill?.duration ?? '90')
+  const [duration, setDuration] = useState(prefill?.duration ?? '200')
   const [lyrics,   setLyrics]   = useState(prefill?.lyrics   ?? '')
 
   const [takes,            setTakes]           = useState<Take[]>([])
   const [selectedTake,     setSelectedTake]     = useState<number | null>(null)
   const [generating,       setGenerating]       = useState(false)
-  const [sending,          setSending]          = useState(false)
   const [serverStatus,     setServerStatus]     = useState<'starting' | 'ready' | 'error'>('starting')
   const [wsStatus,         setWsStatus]         = useState<'connecting' | 'connected' | 'error'>('connecting')
-  const [aceStepSessionId, setAceStepSessionId] = useState<string | null>(null)
+  const [startupLog,       setStartupLog]       = useState<string[]>([])
 
   const wsRef       = useRef<WebSocket | null>(null)
   const healthTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const logRef      = useRef<HTMLDivElement | null>(null)
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -63,7 +65,6 @@ export function ACEStepPage({ onBack, onSendToFade, prefill, sessionId: resumeId
           if (cancelled) return
           const data = await r.json()
           session_id = data.session_id
-          setAceStepSessionId(session_id)
           const p = data.params ?? {}
           if (p.caption)        setCaption(p.caption)
           if (p.bpm)            setBpm(p.bpm)
@@ -77,7 +78,6 @@ export function ACEStepPage({ onBack, onSendToFade, prefill, sessionId: resumeId
           if (!r.ok) throw new Error(`Session failed: ${r.status}`)
           if (cancelled) return
           session_id = (await r.json()).session_id
-          setAceStepSessionId(session_id)
         }
         if (cancelled) return
 
@@ -102,11 +102,24 @@ export function ACEStepPage({ onBack, onSendToFade, prefill, sessionId: resumeId
       // Start ACEStep subprocess
       try { await fetch('/acestep/start', { method: 'POST' }) } catch { /* ignore */ }
 
-      // Poll health
+      // Poll health + tail log while starting
       if (!cancelled) {
         let elapsed = 0
         healthTimer.current = setInterval(async () => {
           elapsed += 2000
+          // Fetch log lines in parallel with health check
+          fetch('/acestep/log?lines=60')
+            .then(r => r.json())
+            .then(d => {
+              if (d.lines?.length) {
+                setStartupLog(d.lines)
+                // Auto-scroll to bottom
+                requestAnimationFrame(() => {
+                  if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
+                })
+              }
+            })
+            .catch(() => {})
           try {
             const r = await fetch('/acestep/health')
             const { ok } = await r.json()
@@ -179,35 +192,24 @@ export function ACEStepPage({ onBack, onSendToFade, prefill, sessionId: resumeId
     setGenerating(true)
     wsRef.current.send(JSON.stringify({
       type: 'generate',
-      params: { caption, lyrics, bpm, key, time_signature: timeSig, duration },
+      params: { title, caption, lyrics, bpm, key, time_signature: timeSig, duration },
     }))
   }
 
   // ── Send to FADE ───────────────────────────────────────────────────────────
 
-  async function sendToFade() {
-    if (!aceStepSessionId || selectedTake === null || sending) return
-    setSending(true)
-    try {
-      const r = await fetch('/sessions/from_acestep', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acestep_session_id: aceStepSessionId, take_n: selectedTake }),
-      })
-      if (!r.ok) throw new Error(`${r.status}`)
-      const data = await r.json()
-      onSendToFade?.(data.session_id)
-    } catch (err) {
-      console.error('Send to FADE failed', err)
-      setSending(false)
-    }
+  function sendToFade() {
+    if (selectedTake === null) return
+    const take = takes.find(t => t.take_n === selectedTake)
+    if (!take || take.status !== 'done') return
+    onSendToFade?.(take.audio_url, lyrics)
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   const canGenerate    = !generating && serverStatus === 'ready' && !!caption.trim()
   const selectedIsDone = selectedTake !== null && takes.some(t => t.take_n === selectedTake && t.status === 'done')
-  const canSendToFade  = !!onSendToFade && selectedIsDone && !sending
+  const canSendToFade  = !!onSendToFade && selectedIsDone
 
   return (
     <div className="acestep-page">
@@ -228,6 +230,15 @@ export function ACEStepPage({ onBack, onSendToFade, prefill, sessionId: resumeId
         </div>
       </div>
 
+      {/* Startup log — visible while model is loading */}
+      {serverStatus === 'starting' && startupLog.length > 0 && (
+        <div className="acestep-startup-log" ref={logRef}>
+          {startupLog.map((line, i) => (
+            <div key={i} className="acestep-log-line">{line}</div>
+          ))}
+        </div>
+      )}
+
       {/* Prompt panel */}
       <div className="acestep-panel">
 
@@ -243,6 +254,10 @@ export function ACEStepPage({ onBack, onSendToFade, prefill, sessionId: resumeId
         </div>
 
         <div className="panel-meta-row">
+          <div className="panel-chip">
+            <label className="panel-chip-label">TITLE</label>
+            <input className="panel-chip-input panel-chip-input--wide" placeholder="track title" value={title} onChange={e => setTitle(e.target.value)} />
+          </div>
           <div className="panel-chip">
             <label className="panel-chip-label">BPM</label>
             <input className="panel-chip-input" placeholder="auto" value={bpm} onChange={e => setBpm(e.target.value)} />
@@ -297,12 +312,12 @@ export function ACEStepPage({ onBack, onSendToFade, prefill, sessionId: resumeId
           </button>
           {onSendToFade && (
             <button
-              className={`btn btn--ghost${canSendToFade ? '' : ' btn--disabled'}`}
+              className={`btn${canSendToFade ? ' btn--primary' : ' btn--ghost btn--disabled'}`}
               disabled={!canSendToFade}
               onClick={sendToFade}
               title={selectedIsDone ? 'Send selected take to video director' : 'Select a completed take first'}
             >
-              {sending ? 'Sending…' : 'Use in FADE'}
+              Use in FADE
             </button>
           )}
         </div>

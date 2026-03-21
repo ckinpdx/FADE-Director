@@ -186,7 +186,8 @@ async def list_workflows():
         {"id": "qie", "name": "Qwen Image Edit"},
     ]
     video_wfs = [
-        {"id": "ltx_humo", "name": "LTX with HuMo", "humo_resolution": True},
+        {"id": "humo",     "name": "InfiniteTalk with HuMo", "humo_resolution": True},
+        {"id": "ltx_humo", "name": "LTX with HuMo",          "humo_resolution": True},
         {"id": "ltx",      "name": "LTX"},
     ]
     if user_dir.exists():
@@ -607,10 +608,10 @@ async def _run_analysis(entry: SessionEntry) -> None:
         await entry.push_status("Computing scene boundaries ...", step="segment")
         t0 = time.perf_counter()
 
-        from backend.analysis.segmentation import segment, default_weights, auto_k as _auto_k_fn
-        k_auto    = _auto_k_fn(music_data["duration"], session.config.scene_max_s)
-        weights   = default_weights()
-        seg_scenes = await asyncio.to_thread(
+        from backend.analysis.segmentation import segment, default_weights, auto_k as _auto_k
+        weights  = default_weights()
+        k_auto   = _auto_k(music_data["duration"], session.config.scene_max_s)
+        seg_scenes  = await asyncio.to_thread(
             segment,
             session.audio_path,
             k=k_auto,
@@ -630,7 +631,7 @@ async def _run_analysis(entry: SessionEntry) -> None:
         session.save_meta()
 
         logger.info(
-            "[%s] Auto-segmentation done in %.1fs  auto_k=%d  actual_k=%d",
+            "[%s] Auto-segmentation done in %.1fs  k_auto=%d  actual_k=%d",
             sid, time.perf_counter() - t0, k_auto, actual_k,
         )
         await entry.push_status(f"Scene boundaries computed: {actual_k} scenes.", step="segment")
@@ -1379,7 +1380,7 @@ class _AceStepEntry:
             "created_at": self.created_at,
             "params":     self.params,
             "takes": [
-                {"take_n": t["take_n"], "metadata": t.get("metadata", {})}
+                {"take_n": t["take_n"], "filename": t.get("filename", f"take_{t['take_n']}.wav"), "metadata": t.get("metadata", {})}
                 for t in self.takes
             ],
         }
@@ -1398,12 +1399,13 @@ class _AceStepEntry:
             entry.takes      = [
                 {
                     "take_n":    t["take_n"],
+                    "filename":  t.get("filename", f"take_{t['take_n']}.wav"),
                     "audio_url": f"/acestep/sessions/{session_id}/takes/{t['take_n']}/audio",
                     "metadata":  t.get("metadata", {}),
                     "status":    "done",
                 }
                 for t in data.get("takes", [])
-                if (entry.session_dir / f"take_{t['take_n']}.wav").exists()
+                if (entry.session_dir / t.get("filename", f"take_{t['take_n']}.wav")).exists()
             ]
         return entry
 
@@ -1457,6 +1459,20 @@ async def acestep_health():
     except Exception:
         pass
     return {"ok": False}
+
+
+@app.get("/acestep/log")
+async def acestep_log(lines: int = 40):
+    """Return the last N lines of the ACEStep server log."""
+    log_path = Path(__file__).parent.parent / "acestep_server.log"
+    if not log_path.exists():
+        return {"lines": []}
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+        tail = text.splitlines()[-lines:]
+        return {"lines": tail}
+    except Exception:
+        return {"lines": []}
 
 
 @app.get("/acestep/sessions")
@@ -1591,15 +1607,25 @@ async def create_session_from_acestep(req: FromAceStepRequest):
 
 @app.get("/acestep/sessions/{session_id}/takes/{take_n}/audio")
 async def get_take_audio(session_id: str, take_n: int):
-    # Work from in-memory session or fall back to disk
     entry = _acestep_sessions.get(session_id)
-    if not entry:
+    if entry:
+        take = next((t for t in entry.takes if t["take_n"] == take_n), None)
+        if not take:
+            raise HTTPException(status_code=404, detail="Take not found")
+        audio_path = entry.session_dir / take.get("filename", f"take_{take_n}.wav")
+    else:
+        # Fall back to disk — load session.json to get filename
         session_dir = config.SESSION_DIR / "acestep" / session_id
-        audio_path = session_dir / f"take_{take_n}.wav"
-        if audio_path.exists():
-            return FileResponse(str(audio_path), media_type="audio/wav")
-        raise HTTPException(status_code=404, detail="Session not found")
-    audio_path = entry.session_dir / f"take_{take_n}.wav"
+        sf = session_dir / "session.json"
+        filename = f"take_{take_n}.wav"
+        if sf.exists():
+            import json as _json
+            data = _json.loads(sf.read_text(encoding="utf-8"))
+            for t in data.get("takes", []):
+                if t.get("take_n") == take_n:
+                    filename = t.get("filename", filename)
+                    break
+        audio_path = session_dir / filename
     if not audio_path.exists():
         raise HTTPException(status_code=404, detail="Take not found")
     return FileResponse(str(audio_path), media_type="audio/wav")
@@ -1653,8 +1679,12 @@ async def acestep_websocket(websocket: WebSocket, session_id: str):
 
 
 async def _run_acestep_generation(entry: _AceStepEntry, params: dict) -> None:
+    import re
     from backend import acestep_client
     take_n = len(entry.takes) + 1
+    raw_title = params.get("title", "").strip()
+    safe_title = re.sub(r'[^\w\s-]', '', raw_title).strip().lower().replace(' ', '_')
+    filename = f"{safe_title}_take{take_n}.wav" if safe_title else f"take_{take_n}.wav"
     try:
         await entry.push("gen_start", {"take_n": take_n})
 
@@ -1666,11 +1696,12 @@ async def _run_acestep_generation(entry: _AceStepEntry, params: dict) -> None:
             if result is None:
                 continue  # still running
 
-            audio_path = entry.session_dir / f"take_{take_n}.wav"
+            audio_path = entry.session_dir / filename
             await acestep_client.download_audio(result["file"], audio_path)
 
             take = {
                 "take_n":    take_n,
+                "filename":  filename,
                 "audio_url": f"/acestep/sessions/{entry.session_id}/takes/{take_n}/audio",
                 "metadata":  result.get("metas", {}),
             }

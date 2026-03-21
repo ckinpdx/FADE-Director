@@ -815,8 +815,8 @@ async def _generate_videos(session: Session, push: PushFn,
         i2v_wf   = _json.load(open("backend/comfyui/workflows/ltx2_i2v.json",      encoding="utf-8"))
         node_map = _json.load(open("backend/comfyui/node_map_i2v_ltx.json"))
     elif workflow == "humo":
-        i2v_wf   = _json.load(open("backend/comfyui/workflows/humo_i2v.json",      encoding="utf-8"))
-        node_map = _json.load(open("backend/comfyui/node_map_i2v_humo.json"))
+        i2v_wf   = _json.load(open("backend/comfyui/workflows/infinitetalk_humo.json", encoding="utf-8"))
+        node_map = _json.load(open("backend/comfyui/node_map_infinitetalk.json"))
     else:  # ltx_humo
         i2v_wf   = _json.load(open("backend/comfyui/workflows/ltx2_i2v_humo.json", encoding="utf-8"))
         node_map = _json.load(open("backend/comfyui/node_map_i2v.json"))
@@ -932,8 +932,12 @@ async def _generate_videos(session: Session, push: PushFn,
         if "humo_seed_value" in node_map:
             patches[node_map["humo_seed_value"]] = {"value": scene["seed"] + 2}
         if "humo_long_edge" in node_map:
-            long_edge = 1152 if cfg.orientation == "portrait" else cfg.humo_resolution
-            patches[node_map["humo_long_edge"]] = {"value": long_edge}
+            patches[node_map["humo_long_edge"]] = {"value": cfg.humo_resolution}
+        if "it_width" in node_map:
+            it_w = 480 if cfg.orientation == "portrait" else 864
+            it_h = 864 if cfg.orientation == "portrait" else 480
+            patches[node_map["it_width"]]  = {"value": it_w}
+            patches[node_map["it_height"]] = {"value": it_h}
         if "create_video" in node_map:
             patches[node_map["create_video"]] = {"fps": cfg.fps}
 

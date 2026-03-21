@@ -847,7 +847,7 @@
     },
     "class_type": "PrimitiveInt",
     "_meta": {
-      "title": "FADE: Width"
+      "title": "FADE: IT Width"
     }
   },
   "628": {
@@ -856,7 +856,7 @@
     },
     "class_type": "PrimitiveInt",
     "_meta": {
-      "title": "FADE: Height"
+      "title": "FADE: IT Height"
     }
   },
   "629": {

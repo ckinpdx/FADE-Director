@@ -1351,6 +1351,26 @@ button {
 
 /* ── Split body ── */
 
+.acestep-startup-log {
+  margin: 0 16px 12px;
+  background: #0d0d0d;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: 'Consolas', 'Menlo', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #a0a0a0;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.acestep-log-line:last-child {
+  color: #d0d0d0;
+}
+
 .acestep-panel {
   flex: 1;
   display: flex;

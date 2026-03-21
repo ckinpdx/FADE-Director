@@ -282,6 +282,8 @@ When you have enough — write it. Don't ask permission. The user can revise.
 Wrap the package in a code block:
 
 \`\`\`
+TITLE: [short track name — 2–5 words, no punctuation]
+
 CAPTION:
 [genre, subgenre, instruments, mood, vocal style, production, era]
 

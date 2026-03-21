@@ -54,6 +54,8 @@ export default function App() {
   const [aceStepPrefill,   setAceStepPrefill]   = useState<Partial<ACEStepPrefill> | undefined>(undefined)
   const [aceStepBack,      setAceStepBack]      = useState<Page>('home')
   const [aceStepSessionId, setAceStepSessionId] = useState<string | undefined>(undefined)
+  const [uploadPrefillUrl,    setUploadPrefillUrl]    = useState<string | undefined>(undefined)
+  const [uploadPrefillLyrics, setUploadPrefillLyrics] = useState<string | undefined>(undefined)
   const [sessionId,        setSessionId]        = useState<string | null>(null)
   const [filename,    setFilename]    = useState('')
   const [savePath,    setSavePath]    = useState('')
@@ -322,7 +324,11 @@ export default function App() {
     return (
       <ACEStepPage
         onBack={() => { setAceStepBack('home'); setPage(aceStepBack) }}
-        onSendToFade={(videoSessionId) => enterDirector(videoSessionId, 'ACE-Step', '', true)}
+        onSendToFade={(audioUrl, lyrics) => {
+          setUploadPrefillUrl(audioUrl)
+          setUploadPrefillLyrics(lyrics)
+          setPage('setup')
+        }}
         prefill={aceStepPrefill}
         sessionId={aceStepSessionId}
       />
@@ -332,8 +338,18 @@ export default function App() {
   if (page === 'setup') {
     return (
       <AudioUpload
-        onBack={() => setPage('home')}
-        onSessionReady={(sid, fname, path = '', orient = 'landscape') => enterDirector(sid, fname, path, false, orient)}
+        onBack={() => {
+          setUploadPrefillUrl(undefined)
+          setUploadPrefillLyrics(undefined)
+          setPage('home')
+        }}
+        onSessionReady={(sid, fname, path = '', orient = 'landscape') => {
+          setUploadPrefillUrl(undefined)
+          setUploadPrefillLyrics(undefined)
+          enterDirector(sid, fname, path, false, orient)
+        }}
+        prefillAudioUrl={uploadPrefillUrl}
+        prefillLyrics={uploadPrefillLyrics}
       />
     )
   }
