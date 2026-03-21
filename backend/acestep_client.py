@@ -2,8 +2,7 @@
 acestep_client.py
 HTTP client for the ACE-Step 1.5 API server.
 
-Model is always acestep-v15-sft (50 steps, guidance_scale 4.0).
-lm_backend is always "pt" — vllm is not available on Windows.
+Model is always acestep-v15-sft (60 steps, guidance_scale 7.0).
 """
 
 from __future__ import annotations
@@ -19,9 +18,8 @@ from backend import config
 logger = logging.getLogger(__name__)
 
 # SFT model settings — quality over speed, no tradeoff
-_INFERENCE_STEPS  = 50
-_GUIDANCE_SCALE   = 4.0
-_LM_BACKEND       = "pt"   # vllm unavailable on Windows
+_INFERENCE_STEPS  = 60
+_GUIDANCE_SCALE   = 7.0
 
 
 async def generate(params: dict) -> str:
@@ -39,9 +37,7 @@ async def generate(params: dict) -> str:
         "audio_format":    "wav",
         "batch_size":      1,
         "use_random_seed": True,
-        "thinking":        True,
         "task_type":       "text2music",
-        "lm_backend":      _LM_BACKEND,
     }
 
     if params.get("bpm"):

@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import type { DragEvent, ChangeEvent } from 'react'
 
-interface WorkflowEntry { id: string; name: string }
+interface WorkflowEntry { id: string; name: string; humo_resolution?: boolean }
 interface Workflows { image: WorkflowEntry[]; video: WorkflowEntry[] }
 
 const FALLBACK_WORKFLOWS: Workflows = {
   image: [{ id: 'zit', name: 'ZIT with Reactor' }, { id: 'qie', name: 'Qwen Image Edit' }],
-  video: [{ id: 'ltx_humo', name: 'LTX with HuMo' }, { id: 'ltx', name: 'LTX' }],
+  video: [{ id: 'ltx_humo', name: 'LTX with HuMo', humo_resolution: true }, { id: 'ltx', name: 'LTX' }],
 }
 
 interface Props {
@@ -216,7 +216,7 @@ export function AudioUpload({ onBack, onSessionReady }: Props) {
       </div>
 
       {/* Final resolution (only for HuMo-involved workflows) */}
-      {videoWorkflow.toLowerCase().includes('humo') && (
+      {workflows.video.find(w => w.id === videoWorkflow)?.humo_resolution && (
         <div className="lyrics-field">
           <label className="lyrics-label">Final Resolution</label>
           <div className="orientation-toggle">

@@ -52,6 +52,8 @@ function allVideosApproved(scenes: Map<number, SceneData>): boolean {
 export default function App() {
   const [page,             setPage]             = useState<Page>('home')
   const [aceStepPrefill,   setAceStepPrefill]   = useState<Partial<ACEStepPrefill> | undefined>(undefined)
+  const [aceStepBack,      setAceStepBack]      = useState<Page>('home')
+  const [aceStepSessionId, setAceStepSessionId] = useState<string | undefined>(undefined)
   const [sessionId,        setSessionId]        = useState<string | null>(null)
   const [filename,    setFilename]    = useState('')
   const [savePath,    setSavePath]    = useState('')
@@ -295,8 +297,9 @@ export default function App() {
       <HomePage
         onMakeVideo={() => setPage('setup')}
         onWriteSong={() => setPage('suno')}
-        onMakeSong={() => setPage('acestep')}
+        onMakeSong={() => { setAceStepSessionId(undefined); setAceStepBack('home'); setPage('acestep') }}
         onResume={(sid, name, path) => enterDirector(sid, name, path, true)}
+        onResumeSong={(sid) => { setAceStepSessionId(sid); setAceStepPrefill(undefined); setAceStepBack('home'); setPage('acestep') }}
       />
     )
   }
@@ -307,6 +310,8 @@ export default function App() {
         onBack={() => setPage('home')}
         onSendToGenerator={(prefill) => {
           setAceStepPrefill(prefill)
+          setAceStepSessionId(undefined)
+          setAceStepBack('suno')
           setPage('acestep')
         }}
       />
@@ -316,8 +321,10 @@ export default function App() {
   if (page === 'acestep') {
     return (
       <ACEStepPage
-        onBack={() => setPage('home')}
+        onBack={() => { setAceStepBack('home'); setPage(aceStepBack) }}
+        onSendToFade={(videoSessionId) => enterDirector(videoSessionId, 'ACE-Step', '', true)}
         prefill={aceStepPrefill}
+        sessionId={aceStepSessionId}
       />
     )
   }

@@ -41,18 +41,34 @@ const WELCOME: Record<Mode, string> = {
 }
 
 function parseAceStepPrefill(text: string): Partial<ACEStepPrefill> {
-  const line = (key: string) => {
-    const m = text.match(new RegExp(`^${key}:[\\t ]*(.*)`, 'm'))
+  // Work inside the code block if present
+  const codeM = text.match(/```[^\n]*\n([\s\S]*?)```/)
+  const src   = codeM ? codeM[1] : text
+
+  // Same-line values: "KEY: value"
+  const sameLine = (key: string) => {
+    const m = src.match(new RegExp(`^${key}:[\\t ]+(.+)`, 'm'))
     return m?.[1]?.trim() ?? ''
   }
-  const lyricsM = text.match(/^LYRICS:[ \t]*\n([\s\S]*?)(?=^NOTES:[ \t]*\n|^NOTES:[ \t]*$|$)/m)
+  // Next-line value: "KEY:\nvalue" — caption sits on the line after its header
+  const nextLine = (key: string) => {
+    const m = src.match(new RegExp(`^${key}:[\\t ]*\\n(.+)`, 'm'))
+    return m?.[1]?.trim() ?? sameLine(key)
+  }
+
+  const lyricsStart = src.indexOf('\nLYRICS:\n')
+  const notesStart  = src.indexOf('\nNOTES:')
+  const lyricsBody  = lyricsStart !== -1
+    ? src.slice(lyricsStart + '\nLYRICS:\n'.length, notesStart !== -1 ? notesStart : undefined).trim()
+    : ''
+
   return {
-    caption:  line('CAPTION'),
-    bpm:      line('BPM'),
-    key:      line('KEY'),
-    timeSig:  line('TIME SIGNATURE'),
-    duration: line('DURATION'),
-    lyrics:   lyricsM?.[1]?.trim() ?? line('LYRICS'),
+    caption:  nextLine('CAPTION'),
+    bpm:      sameLine('BPM'),
+    key:      sameLine('KEY'),
+    timeSig:  sameLine('TIME SIGNATURE'),
+    duration: sameLine('DURATION').replace(/[^0-9]/g, ''),
+    lyrics:   lyricsBody,
   }
 }
 
@@ -62,12 +78,28 @@ export function SunoPage({ onBack, onSendToGenerator }: Props) {
   const [draft,      setDraft]      = useState('')
   const [busy,       setBusy]       = useState(false)
   const [wsStatus,   setWsStatus]   = useState<'connecting' | 'connected' | 'error'>('connecting')
+  const [models,     setModels]     = useState<string[]>([])
+  const [model,      setModel]      = useState('')
 
   const wsRef       = useRef<WebSocket | null>(null)
   const streamIdRef = useRef<number | null>(null)
   const bottomRef   = useRef<HTMLDivElement>(null)
 
-  // ── Session + WebSocket — recreate when mode changes ──────────────────────
+  // ── Fetch available models once on mount ──────────────────────────────────
+
+  useEffect(() => {
+    fetch('/models')
+      .then(r => r.json())
+      .then(({ models: list }: { models: string[] }) => {
+        if (list.length > 0) {
+          setModels(list)
+          setModel(prev => prev || list[0])
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  // ── Session + WebSocket — recreate when mode or model changes ─────────────
 
   useEffect(() => {
     let ws: WebSocket | null = null
@@ -77,7 +109,9 @@ export function SunoPage({ onBack, onSendToGenerator }: Props) {
 
     async function init() {
       try {
-        const r = await fetch(`/suno/sessions?mode=${mode}`, { method: 'POST' })
+        const params = new URLSearchParams({ mode })
+        if (model) params.set('model', model)
+        const r = await fetch(`/suno/sessions?${params}`, { method: 'POST' })
         if (!r.ok) throw new Error(`Session failed: ${r.status}`)
         if (cancelled) return
         const { session_id } = await r.json()
@@ -112,7 +146,7 @@ export function SunoPage({ onBack, onSendToGenerator }: Props) {
       ws?.close()
       wsRef.current = null
     }
-  }, [mode])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, model])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll
   useEffect(() => {
@@ -211,6 +245,17 @@ export function SunoPage({ onBack, onSendToGenerator }: Props) {
           ))}
         </div>
 
+        {models.length > 0 && (
+          <select
+            className="suno-model-select"
+            value={model}
+            onChange={e => { setMessages([]); setDraft(''); setBusy(false); streamIdRef.current = null; setModel(e.target.value) }}
+            disabled={busy}
+          >
+            {models.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        )}
+
         <span className={`ws-dot ws-dot--${wsStatus}`} title={`WS: ${wsStatus}`} />
         {busy && <span className="chat-busy-dot" title="Thinking" />}
       </div>
@@ -258,13 +303,10 @@ export function SunoPage({ onBack, onSendToGenerator }: Props) {
           onChange={e => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
         />
-        <button
-          className="chat-send-btn"
-          disabled={inputDisabled || !draft.trim()}
-          onClick={send}
-        >
-          Send
-        </button>
+        {busy
+          ? <button className="chat-send-btn chat-stop-btn" onClick={() => wsRef.current?.send(JSON.stringify({ type: 'stop' }))}>Stop</button>
+          : <button className="chat-send-btn" disabled={inputDisabled || !draft.trim()} onClick={send}>Send</button>
+        }
       </div>
     </div>
   )

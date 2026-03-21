@@ -12,10 +12,33 @@ import asyncio
 import logging
 import os
 import subprocess
+import sys
+from pathlib import Path
 
 import httpx
 
 from backend import config
+
+
+def _acestep_python() -> Path:
+    """
+    Resolve the Python interpreter from the dedicated ACEStep venv.
+    Raises RuntimeError with a clear install instruction if the venv doesn't exist.
+    """
+    venv = Path(config.ACESTEP_VENV_DIR).resolve()
+    ext = ".exe" if sys.platform == "win32" else ""
+    python = venv / ("Scripts" if sys.platform == "win32" else "bin") / f"python{ext}"
+    if not python.exists():
+        raise RuntimeError(
+            f"ACEStep venv not found at {venv}. "
+            "Run scripts/setup_acestep.bat (Windows) or scripts/setup_acestep.sh (Linux/Mac) "
+            "to create the dedicated ACEStep environment."
+        )
+    return python
+
+
+# Path to our standalone server script (sibling of this file)
+_SERVER_SCRIPT = Path(__file__).parent / "acestep_server.py"
 
 logger = logging.getLogger(__name__)
 
@@ -46,22 +69,20 @@ async def start() -> None:
         port = _port_from_url(config.ACESTEP_URL)
 
         env = os.environ.copy()
-        env["ACESTEP_CONFIG_PATH"]   = config.ACESTEP_CONFIG_PATH
-        env["ACESTEP_LM_MODEL_PATH"] = config.ACESTEP_LM_MODEL_PATH
-        env["ACESTEP_API_PORT"]      = port
-        # Disable vllm (not available on Windows) — requests fall back to "pt"
-        env["ACESTEP_LM_BACKEND"]    = "pt"
+        env["ACESTEP_API_PORT"] = port
+        # ACESTEP_CHECKPOINT_DIR: "" means auto-download to ~/.cache/ace-step
+        env["ACESTEP_CHECKPOINT_DIR"] = ""
 
-        logger.info(
-            "Starting ACEStep (model=%s, port=%s)",
-            config.ACESTEP_CONFIG_PATH, port,
-        )
+        logger.info("Starting ACEStep server (port=%s)", port)
 
+        python = _acestep_python()
+        log_path = Path(__file__).parent.parent / "acestep_server.log"
+        log_file = open(log_path, "w", buffering=1)
         _proc = subprocess.Popen(
-            ["acestep-api"],
+            [str(python), str(_SERVER_SCRIPT)],
             env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=log_file,
+            stderr=log_file,
         )
         logger.info("ACEStep subprocess pid=%d — waiting for health…", _proc.pid)
 
@@ -71,7 +92,7 @@ async def start() -> None:
             if _proc.poll() is not None:
                 raise RuntimeError(
                     f"ACEStep process exited early (rc={_proc.returncode}). "
-                    "Check that 'acestep-api' is installed: pip install ace-step"
+                    "Run scripts/setup_acestep.bat to reinstall the ACEStep environment."
                 )
             if await health_check():
                 logger.info("ACEStep ready")

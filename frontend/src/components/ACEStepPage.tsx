@@ -20,13 +20,15 @@ interface Take {
 }
 
 interface Props {
-  onBack:   () => void
-  prefill?: Partial<ACEStepPrefill>
+  onBack:         () => void
+  onSendToFade?:  (videoSessionId: string) => void
+  prefill?:       Partial<ACEStepPrefill>
+  sessionId?:     string
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ACEStepPage({ onBack, prefill }: Props) {
+export function ACEStepPage({ onBack, onSendToFade, prefill, sessionId: resumeId }: Props) {
   const [caption,  setCaption]  = useState(prefill?.caption  ?? '')
   const [bpm,      setBpm]      = useState(prefill?.bpm      ?? '')
   const [key,      setKey]      = useState(prefill?.key      ?? '')
@@ -34,10 +36,13 @@ export function ACEStepPage({ onBack, prefill }: Props) {
   const [duration, setDuration] = useState(prefill?.duration ?? '90')
   const [lyrics,   setLyrics]   = useState(prefill?.lyrics   ?? '')
 
-  const [takes,      setTakes]      = useState<Take[]>([])
-  const [generating, setGenerating] = useState(false)
-  const [serverStatus, setServerStatus] = useState<'starting' | 'ready' | 'error'>('starting')
-  const [wsStatus,   setWsStatus]   = useState<'connecting' | 'connected' | 'error'>('connecting')
+  const [takes,            setTakes]           = useState<Take[]>([])
+  const [selectedTake,     setSelectedTake]     = useState<number | null>(null)
+  const [generating,       setGenerating]       = useState(false)
+  const [sending,          setSending]          = useState(false)
+  const [serverStatus,     setServerStatus]     = useState<'starting' | 'ready' | 'error'>('starting')
+  const [wsStatus,         setWsStatus]         = useState<'connecting' | 'connected' | 'error'>('connecting')
+  const [aceStepSessionId, setAceStepSessionId] = useState<string | null>(null)
 
   const wsRef       = useRef<WebSocket | null>(null)
   const healthTimer = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -50,10 +55,31 @@ export function ACEStepPage({ onBack, prefill }: Props) {
 
     async function init() {
       try {
-        const r = await fetch('/acestep/sessions', { method: 'POST' })
-        if (!r.ok) throw new Error(`Session failed: ${r.status}`)
+        let session_id: string
+        if (resumeId) {
+          // Resume existing session — load params + takes from disk
+          const r = await fetch(`/acestep/sessions/${resumeId}/resume`, { method: 'POST' })
+          if (!r.ok) throw new Error(`Resume failed: ${r.status}`)
+          if (cancelled) return
+          const data = await r.json()
+          session_id = data.session_id
+          setAceStepSessionId(session_id)
+          const p = data.params ?? {}
+          if (p.caption)        setCaption(p.caption)
+          if (p.bpm)            setBpm(p.bpm)
+          if (p.key)            setKey(p.key)
+          if (p.time_signature) setTimeSig(p.time_signature)
+          if (p.duration)       setDuration(p.duration)
+          if (p.lyrics)         setLyrics(p.lyrics)
+          if (data.takes?.length) setTakes(data.takes)
+        } else {
+          const r = await fetch('/acestep/sessions', { method: 'POST' })
+          if (!r.ok) throw new Error(`Session failed: ${r.status}`)
+          if (cancelled) return
+          session_id = (await r.json()).session_id
+          setAceStepSessionId(session_id)
+        }
         if (cancelled) return
-        const { session_id } = await r.json()
 
         const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
         const host  = import.meta.env.DEV ? '127.0.0.1:8001' : window.location.host
@@ -87,12 +113,12 @@ export function ACEStepPage({ onBack, prefill }: Props) {
             if (ok) {
               setServerStatus('ready')
               clearInterval(healthTimer.current!)
-            } else if (elapsed >= 120_000) {
+            } else if (elapsed >= 600_000) {
               setServerStatus('error')
               clearInterval(healthTimer.current!)
             }
           } catch {
-            if (elapsed >= 120_000) {
+            if (elapsed >= 600_000) {
               setServerStatus('error')
               clearInterval(healthTimer.current!)
             }
@@ -130,6 +156,8 @@ export function ACEStepPage({ onBack, prefill }: Props) {
             ? { ...t, audio_url: data.audio_url!, metadata: data.metadata ?? {}, status: 'done' }
             : t
         ))
+        // Auto-select the latest completed take
+        setSelectedTake(n)
         setGenerating(false)
         break
       }
@@ -155,9 +183,31 @@ export function ACEStepPage({ onBack, prefill }: Props) {
     }))
   }
 
+  // ── Send to FADE ───────────────────────────────────────────────────────────
+
+  async function sendToFade() {
+    if (!aceStepSessionId || selectedTake === null || sending) return
+    setSending(true)
+    try {
+      const r = await fetch('/sessions/from_acestep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acestep_session_id: aceStepSessionId, take_n: selectedTake }),
+      })
+      if (!r.ok) throw new Error(`${r.status}`)
+      const data = await r.json()
+      onSendToFade?.(data.session_id)
+    } catch (err) {
+      console.error('Send to FADE failed', err)
+      setSending(false)
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const canGenerate = !generating && serverStatus === 'ready' && !!caption.trim()
+  const canGenerate    = !generating && serverStatus === 'ready' && !!caption.trim()
+  const selectedIsDone = selectedTake !== null && takes.some(t => t.take_n === selectedTake && t.status === 'done')
+  const canSendToFade  = !!onSendToFade && selectedIsDone && !sending
 
   return (
     <div className="acestep-page">
@@ -225,7 +275,14 @@ export function ACEStepPage({ onBack, prefill }: Props) {
           <div className="takes-section">
             <div className="panel-label">TAKES</div>
             <div className="takes-list">
-              {takes.map(t => <TakeRow key={t.take_n} take={t} />)}
+              {takes.map(t => (
+                <TakeRow
+                  key={t.take_n}
+                  take={t}
+                  selected={t.take_n === selectedTake}
+                  onSelect={() => t.status === 'done' && setSelectedTake(t.take_n)}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -238,13 +295,16 @@ export function ACEStepPage({ onBack, prefill }: Props) {
           >
             {generating ? 'Generating…' : serverStatus === 'starting' ? 'Starting ACE-Step…' : 'Generate'}
           </button>
-          <button
-            className="btn btn--ghost btn--disabled"
-            disabled
-            title="Use the selected take in FADE's video director — coming soon"
-          >
-            Use in FADE
-          </button>
+          {onSendToFade && (
+            <button
+              className={`btn btn--ghost${canSendToFade ? '' : ' btn--disabled'}`}
+              disabled={!canSendToFade}
+              onClick={sendToFade}
+              title={selectedIsDone ? 'Send selected take to video director' : 'Select a completed take first'}
+            >
+              {sending ? 'Sending…' : 'Use in FADE'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -253,7 +313,13 @@ export function ACEStepPage({ onBack, prefill }: Props) {
 
 // ── TakeRow ───────────────────────────────────────────────────────────────────
 
-function TakeRow({ take }: { take: Take }) {
+interface TakeRowProps {
+  take:      Take
+  selected:  boolean
+  onSelect:  () => void
+}
+
+function TakeRow({ take, selected, onSelect }: TakeRowProps) {
   const meta = take.metadata
 
   if (take.status === 'generating') {
@@ -276,14 +342,26 @@ function TakeRow({ take }: { take: Take }) {
   }
 
   return (
-    <div className="take-row">
+    <div
+      className={`take-row take-row--done${selected ? ' take-row--selected' : ''}`}
+      onClick={onSelect}
+      role="radio"
+      aria-checked={selected}
+    >
       <div className="take-row-top">
+        <span className={`take-select-dot${selected ? ' take-select-dot--on' : ''}`} />
         <span className="take-label">Take {take.take_n}</span>
         {meta.bpm      && <span className="take-chip">{meta.bpm} BPM</span>}
         {meta.keyscale && <span className="take-chip">{meta.keyscale}</span>}
         {meta.duration && <span className="take-chip">{Math.round(meta.duration)}s</span>}
       </div>
-      <audio className="take-audio" controls src={take.audio_url} preload="metadata" />
+      <audio
+        className="take-audio"
+        controls
+        src={take.audio_url}
+        preload="metadata"
+        onClick={e => e.stopPropagation()}
+      />
     </div>
   )
 }

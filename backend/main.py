@@ -29,6 +29,7 @@ Analysis pipeline (auto-started by POST /sessions on session creation):
 from __future__ import annotations
 
 import asyncio
+import datetime
 import json
 import logging
 import re
@@ -38,10 +39,13 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from fastapi import (
     FastAPI, WebSocket, WebSocketDisconnect,
     HTTPException, UploadFile, File, Form, Body,
 )
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -147,6 +151,20 @@ def _slugify(name: str) -> str:
 # Workflow discovery
 # ---------------------------------------------------------------------------
 
+@app.get("/models")
+async def list_models():
+    """Proxy llama-swap's model list for the frontend model selector."""
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(f"{config.AGENT_URL}/v1/models")
+            r.raise_for_status()
+            data = r.json()
+            ids = [m["id"] for m in data.get("data", [])]
+            return {"models": ids}
+    except Exception:
+        return {"models": []}
+
+
 @app.get("/workflows/templates")
 async def list_workflow_templates():
     """List downloadable reference workflow files from workflows_UI/."""
@@ -168,15 +186,25 @@ async def list_workflows():
         {"id": "qie", "name": "Qwen Image Edit"},
     ]
     video_wfs = [
-        {"id": "ltx_humo", "name": "LTX with HuMo"},
+        {"id": "ltx_humo", "name": "LTX with HuMo", "humo_resolution": True},
         {"id": "ltx",      "name": "LTX"},
     ]
     if user_dir.exists():
         for wf_file in sorted(user_dir.glob("*.json")):
             stem = wf_file.stem
-            if not (user_dir / f"{stem}.nodemap.json").exists():
+            nodemap_path = user_dir / f"{stem}.nodemap.json"
+            if not nodemap_path.exists():
                 continue
-            entry = {"id": f"user/{stem}", "name": stem}
+            try:
+                nodemap = json.loads(nodemap_path.read_text(encoding="utf-8"))
+            except Exception:
+                nodemap = {}
+            entry = {
+                "id":   f"user/{stem}",
+                "name": nodemap.get("display_name", stem),
+            }
+            if nodemap.get("humo_resolution"):
+                entry["humo_resolution"] = True
             if "_i2v" in stem:
                 video_wfs.append(entry)
             elif "_t2i" in stem:
@@ -1241,9 +1269,9 @@ async def _handle_chat(entry: SessionEntry, message: str) -> None:
 # ---------------------------------------------------------------------------
 
 class _SunoEntry:
-    def __init__(self, mode: str = "suno") -> None:
+    def __init__(self, mode: str = "suno", model: str | None = None) -> None:
         from backend.agent.suno_orchestrator import SunoOrchestrator
-        self.orch = SunoOrchestrator(mode=mode)
+        self.orch = SunoOrchestrator(mode=mode, model=model)
         self.ws: WebSocket | None = None
         self.busy = False
 
@@ -1259,10 +1287,10 @@ _suno_sessions: dict[str, _SunoEntry] = {}
 
 
 @app.post("/suno/sessions")
-async def create_suno_session(mode: str = "suno"):
+async def create_suno_session(mode: str = "suno", model: str | None = None):
     sid = uuid.uuid4().hex[:12]
-    _suno_sessions[sid] = _SunoEntry(mode=mode)
-    logger.info("Suno session created: %s (mode=%s)", sid, mode)
+    _suno_sessions[sid] = _SunoEntry(mode=mode, model=model)
+    logger.info("Suno session created: %s (mode=%s, model=%s)", sid, mode, model or "default")
     return {"session_id": sid}
 
 
@@ -1291,6 +1319,19 @@ async def suno_websocket(websocket: WebSocket, session_id: str):
 
         ping = asyncio.create_task(_keepalive())
 
+        chat_task: asyncio.Task | None = None
+
+        async def _run_chat(message: str) -> None:
+            try:
+                await entry.orch.chat(message, entry.push)
+            except asyncio.CancelledError:
+                await entry.push("assistant_done", {})
+            except Exception as exc:
+                logger.exception("Suno chat error: %s", exc)
+                await entry.push("error", {"message": str(exc)})
+            finally:
+                entry.busy = False
+
         while True:
             data     = await websocket.receive_json()
             msg_type = data.get("type")
@@ -1300,13 +1341,11 @@ async def suno_websocket(websocket: WebSocket, session_id: str):
                 if not message or entry.busy:
                     continue
                 entry.busy = True
-                try:
-                    await entry.orch.chat(message, entry.push)
-                except Exception as exc:
-                    logger.exception("Suno chat error: %s", exc)
-                    await entry.push("error", {"message": str(exc)})
-                finally:
-                    entry.busy = False
+                chat_task = asyncio.create_task(_run_chat(message))
+
+            elif msg_type == "stop":
+                if chat_task and not chat_task.done():
+                    chat_task.cancel()
 
             elif msg_type == "ping":
                 await websocket.send_json({"event": "pong"})
@@ -1328,9 +1367,45 @@ class _AceStepEntry:
         self.session_id  = session_id
         self.ws: WebSocket | None = None
         self.busy_gen    = False
+        self.params:      dict = {}
         self.takes:       list[dict] = []
+        self.created_at   = datetime.datetime.utcnow().isoformat(timespec="seconds")
         self.session_dir  = config.SESSION_DIR / "acestep" / session_id
         self.session_dir.mkdir(parents=True, exist_ok=True)
+
+    def save(self) -> None:
+        data = {
+            "session_id": self.session_id,
+            "created_at": self.created_at,
+            "params":     self.params,
+            "takes": [
+                {"take_n": t["take_n"], "metadata": t.get("metadata", {})}
+                for t in self.takes
+            ],
+        }
+        (self.session_dir / "session.json").write_text(
+            json.dumps(data, indent=2), encoding="utf-8"
+        )
+
+    @classmethod
+    def from_disk(cls, session_id: str) -> "_AceStepEntry":
+        entry = cls(session_id)
+        sf = entry.session_dir / "session.json"
+        if sf.exists():
+            data = json.loads(sf.read_text(encoding="utf-8"))
+            entry.created_at = data.get("created_at", entry.created_at)
+            entry.params     = data.get("params", {})
+            entry.takes      = [
+                {
+                    "take_n":    t["take_n"],
+                    "audio_url": f"/acestep/sessions/{session_id}/takes/{t['take_n']}/audio",
+                    "metadata":  t.get("metadata", {}),
+                    "status":    "done",
+                }
+                for t in data.get("takes", [])
+                if (entry.session_dir / f"take_{t['take_n']}.wav").exists()
+            ]
+        return entry
 
     async def push(self, event: str, data: dict) -> None:
         if self.ws:
@@ -1369,15 +1444,160 @@ async def stop_acestep():
 
 @app.get("/acestep/health")
 async def acestep_health():
-    from backend import acestep_process
-    ok = await acestep_process.health_check()
-    return {"ok": ok}
+    """Proxy the ACEStep server's health, forwarding its ok field.
+    Returns ok=false while the model is still loading (not just while the process is starting)."""
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            r = await client.get(f"{config.ACESTEP_URL}/health")
+            if r.status_code == 200:
+                data = r.json()
+                # v1.5 server returns {ok, status}; legacy returns {status: "ok"}
+                ok = data.get("ok", data.get("status") == "ok")
+                return {"ok": ok}
+    except Exception:
+        pass
+    return {"ok": False}
+
+
+@app.get("/acestep/sessions")
+async def list_acestep_sessions():
+    base = config.SESSION_DIR / "acestep"
+    sessions = []
+    if base.exists():
+        for d in sorted(base.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+            sf = d / "session.json"
+            if sf.exists():
+                data = json.loads(sf.read_text(encoding="utf-8"))
+                caption = data.get("params", {}).get("caption", "")
+                sessions.append({
+                    "session_id": data["session_id"],
+                    "created_at": data.get("created_at", ""),
+                    "caption":    caption[:80] if caption else "(no caption)",
+                    "take_count": len(data.get("takes", [])),
+                })
+    return {"sessions": sessions}
+
+
+@app.post("/acestep/sessions/{session_id}/resume")
+async def resume_acestep_session(session_id: str):
+    if session_id not in _acestep_sessions:
+        _acestep_sessions[session_id] = _AceStepEntry.from_disk(session_id)
+    entry = _acestep_sessions[session_id]
+    return {
+        "session_id": entry.session_id,
+        "params":     entry.params,
+        "takes":      entry.takes,
+    }
+
+
+class FromAceStepRequest(BaseModel):
+    acestep_session_id: str
+    take_n:             int
+    project_name:       str | None = None
+    orientation:        str | None = None
+
+
+@app.post("/sessions/from_acestep")
+async def create_session_from_acestep(req: FromAceStepRequest):
+    """
+    Create a video director session from an ACEStep take.
+    Copies the WAV and lyrics into a new video session, then starts analysis.
+    Returns {session_id, save_path} — same shape as POST /sessions.
+    """
+    # ── Resolve ACEStep source ───────────────────────────────────────────────
+    entry = _acestep_sessions.get(req.acestep_session_id)
+    if not entry:
+        session_dir_as = config.SESSION_DIR / "acestep" / req.acestep_session_id
+        sf = session_dir_as / "session.json"
+        if sf.exists():
+            entry = _AceStepEntry.from_disk(req.acestep_session_id)
+        else:
+            raise HTTPException(404, "ACEStep session not found")
+
+    src_wav = entry.session_dir / f"take_{req.take_n}.wav"
+    if not src_wav.exists():
+        raise HTTPException(404, f"Take {req.take_n} not found")
+
+    lyrics = (entry.params.get("lyrics") or "").strip()
+
+    # ── Create video session ─────────────────────────────────────────────────
+    session_id = uuid.uuid4().hex[:12]
+    pname = req.project_name or entry.params.get("caption") or ""
+    if pname.strip():
+        slug     = _slugify(pname.strip())
+        dir_name = f"{slug}-{session_id[:6]}"
+    else:
+        dir_name = session_id
+
+    session_dir = (config.SESSION_DIR / dir_name).resolve()
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    orient = req.orientation or config.DEFAULT_ORIENTATION
+    w, h   = _orientation_dims(orient)
+    cfg = SessionConfig(
+        width           = w,
+        height          = h,
+        fps             = config.DEFAULT_FPS,
+        orientation     = orient,
+        scene_min_s     = config.SCENE_MIN_SECONDS,
+        scene_max_s     = config.SCENE_MAX_SECONDS,
+        image_workflow  = "zit",
+        video_workflow  = "ltx_humo",
+        humo_resolution = 1280,
+    )
+
+    session = Session(
+        session_id   = session_id,
+        session_dir  = session_dir,
+        config       = cfg,
+        project_name = pname.strip() or None,
+    )
+
+    # ── Copy WAV ─────────────────────────────────────────────────────────────
+    audio_dir = session_dir / "audio"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    audio_dest = audio_dir / "original.wav"
+    shutil.copy2(src_wav, audio_dest)
+    session.audio_path = audio_dest
+
+    # ── Save lyrics ───────────────────────────────────────────────────────────
+    session.raw_lyrics = lyrics
+    if lyrics:
+        session.save_raw_lyrics()
+
+    session.save_meta()
+    se = SessionEntry(session)
+    _sessions[session_id] = se
+
+    logger.info(
+        "Session from ACEStep: %s (take %d) → %s",
+        req.acestep_session_id, req.take_n, dir_name,
+    )
+
+    # ── Start analysis ────────────────────────────────────────────────────────
+    if lyrics:
+        se._status  = "analyzing"
+        se._bg_task = asyncio.create_task(_run_analysis(se))
+
+    return {
+        "session_id": session_id,
+        "save_path":  str(session_dir),
+        "config": {
+            "orientation": orient, "width": w, "height": h,
+            "fps": cfg.fps, "scene_min_s": cfg.scene_min_s, "scene_max_s": cfg.scene_max_s,
+        },
+    }
 
 
 @app.get("/acestep/sessions/{session_id}/takes/{take_n}/audio")
 async def get_take_audio(session_id: str, take_n: int):
+    # Work from in-memory session or fall back to disk
     entry = _acestep_sessions.get(session_id)
     if not entry:
+        session_dir = config.SESSION_DIR / "acestep" / session_id
+        audio_path = session_dir / f"take_{take_n}.wav"
+        if audio_path.exists():
+            return FileResponse(str(audio_path), media_type="audio/wav")
         raise HTTPException(status_code=404, detail="Session not found")
     audio_path = entry.session_dir / f"take_{take_n}.wav"
     if not audio_path.exists():
@@ -1416,6 +1636,8 @@ async def acestep_websocket(websocket: WebSocket, session_id: str):
                 if entry.busy_gen:
                     continue
                 params = data.get("params", {})
+                entry.params = params
+                entry.save()
                 entry.busy_gen = True
                 asyncio.create_task(_run_acestep_generation(entry, params))
 
@@ -1453,6 +1675,7 @@ async def _run_acestep_generation(entry: _AceStepEntry, params: dict) -> None:
                 "metadata":  result.get("metas", {}),
             }
             entry.takes.append(take)
+            entry.save()
             await entry.push("gen_done", {
                 "take_n":    take_n,
                 "audio_url": take["audio_url"],

@@ -218,34 +218,39 @@ DURATION — in seconds. 60–120s for standard tracks; up to 600s supported.
   60s = one pass through a verse/chorus. 90–120s for a full song feel.
 
 LYRICS — structured text with section markers.
-  Section markers (square brackets):
-    [intro], [verse], [verse 1], [verse 2], [pre-chorus], [chorus], [bridge],
-    [guitar solo], [instrumental], [inst], [outro]
+  Section markers use square brackets on their own line:
+    [Intro], [Verse], [Verse 1], [Verse 2], [Pre-Chorus], [Chorus], [Bridge],
+    [Guitar Solo], [Instrumental], [Build], [Drop], [Breakdown], [Outro], [Fade Out]
 
-  Performance/delivery directions go in parentheses — these affect vocal style:
-    (whispered), (soft), (shouted), (high intensity), (falsetto), (breathy),
-    (normal intensity), (spoken word), (ad libs), (harmonies)
+  Style modifiers attach to the section tag with a hyphen — ONE modifier max:
+    [Chorus - powerful], [Verse - whispered], [Bridge - melancholic], [Intro - ambient]
+  Keep modifiers to one word or short phrase. All detail belongs in the caption.
+  NEVER stack multiple modifiers: [Chorus - powerful - anthemic - epic] confuses the model.
 
-  There are no inline effect metatags like Suno. Section markers + parentheticals
-  are the full control surface.
+  Parentheses () mean BACKGROUND VOCALS — the model will sing them as a secondary layer:
+    "We rise together (together)" — echo/harmony effect
+    "Into the light (into the light)" — backing vocal repetition
+  NEVER use parentheses for annotations, directions, or anything non-lyrical.
+  The model does not interpret parenthetical stage directions — it speaks them literally.
+  (humming), (laughter), (ad libs), (instrumental), (pause) will all be spoken aloud
+  as words in the vocal track. This is a hard model limitation, not a style choice.
+  For delivery/energy, use the section modifier: [Verse - whispered], [Intro - ambient].
+  For non-vocal sections, use [Instrumental] or [Guitar Solo] as standalone section tags.
 
-  For pure instrumentals: set lyrics to just [inst]. Don't add vocal lines.
+  For pure instrumentals: set lyrics to just [Instrumental]. Don't add vocal lines.
 
   Rules:
-    • Section markers are the primary structural control.
-    • Parentheticals control delivery — use them deliberately. (whispered) verse
-      into (high intensity) chorus creates real dynamic range.
+    • One blank line between sections.
     • Repeat chorus lines exactly — reinforces the hook.
     • ~90–140 words for a 47-second track (~2–3 words/second). Scale for duration.
-    • Insert [instrumental] or [guitar solo] sections for breathing room.
+    • Insert [Instrumental] or [Guitar Solo] sections for breathing room.
     • First lines set the model's tonal expectation. Make them count.
     • Rhyme scheme should be consistent within each section.
 
 == MODEL ==
 
-  This pipeline always uses the SFT model (acestep-v15-sft, 50 steps) — highest fidelity,
+  This pipeline always uses the SFT model (acestep-v15-sft) — highest fidelity,
   no speed/quality compromise. Do not recommend Turbo or Base to the user.
-  Guidance scale sweet spot: ~4.0. Above 6.0 degrades quality.
 
 == CREATIVE APPROACH ==
 
@@ -255,7 +260,9 @@ Don't default to the safe version. Push the concept:
     "builds from intimate verse to explosive chorus, melancholic bridge, triumphant resolve"
   • For instrumentation: the model hears what you name. "Fingerpicked nylon string guitar,
     palm-muted bass, brushed snare, vibraphone" is far better than "acoustic jazz band".
-  • Parentheticals are subtle but powerful. Use them to create real dynamic contrast.
+  • Section modifiers ([Chorus - powerful], [Verse - whispered]) create dynamic contrast.
+    Use them deliberately. A whispered verse into a powerful chorus hits hard.
+  • Background vocals via parentheses () work well for echo/harmony effects on key lines.
   • If the user is vague, propose a specific angle before writing. Then commit and go.
 
 == INTERVIEW FLOW ==
@@ -284,26 +291,26 @@ TIME SIGNATURE: 4/4
 DURATION: 90s
 
 LYRICS:
-[intro]
+[Intro]
 
-[verse]
+[Verse 1]
 ...
 
-[chorus]
+[Chorus - powerful]
 ...
 
-[verse]
+[Verse 2]
 ...
 
-[chorus]
+[Chorus - powerful]
 ...
 
-[bridge]
+[Bridge - whispered]
 ...
 
-[chorus]
+[Chorus - powerful]
 
-[outro]
+[Outro]
 
 NOTES:
 • What to expect from this prompt
@@ -332,13 +339,14 @@ class SunoOrchestrator:
     mode="acestep" → ACE-Step 1.5 prompt engineer
     """
 
-    def __init__(self, mode: str = "suno") -> None:
+    def __init__(self, mode: str = "suno", model: str | None = None) -> None:
         self._history:        list[dict] = []
         self._agent_url:      str = os.environ.get("AGENT_URL",  "http://127.0.0.1:8000")
-        self._model:          str = os.environ.get("AGENT_MODEL", "qwen3.5-35b")
-        self._system_prompt:  str = (
-            ACESTEP_SYSTEM_PROMPT if mode == "acestep" else SUNO_SYSTEM_PROMPT
-        )
+        self._model:          str = model or os.environ.get("AGENT_MODEL", "qwen3.5-35b")
+        # /nothink disables Qwen3 extended thinking at the chat template level —
+        # belt-and-suspenders alongside chat_template_kwargs in the API payload.
+        base = ACESTEP_SYSTEM_PROMPT if mode == "acestep" else SUNO_SYSTEM_PROMPT
+        self._system_prompt = base + "\n/nothink"
 
     async def chat(self, user_message: str, push: PushFn) -> None:
         self._history.append({"role": "user", "content": user_message})
@@ -350,6 +358,9 @@ class SunoOrchestrator:
             "messages":   messages,
             "stream":     True,
             "max_tokens": 4096,
+            # Disable extended thinking — creative interview work doesn't need it,
+            # and think-only responses with no visible output cause blank replies.
+            "chat_template_kwargs": {"enable_thinking": False},
         }
 
         text_parts: list[str] = []

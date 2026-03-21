@@ -39,9 +39,10 @@ SESSION_DIR  = Path(_get("SESSION_DIR", "./sessions"))
 
 
 # ACEStep local generator
-ACESTEP_URL           = _get("ACESTEP_URL",           "http://127.0.0.1:8002")
-ACESTEP_CONFIG_PATH   = _get("ACESTEP_CONFIG_PATH",   "acestep-v15-sft")
-ACESTEP_LM_MODEL_PATH = _get("ACESTEP_LM_MODEL_PATH", "acestep-5Hz-lm-1.7B")
+ACESTEP_URL      = _get("ACESTEP_URL",      "http://127.0.0.1:8002")
+# Dedicated venv for ACEStep — created by scripts/setup_acestep.bat|sh
+# Never installed into FADE's own venv.
+ACESTEP_VENV_DIR = _get("ACESTEP_VENV_DIR", "./acestep_venv")
 
 # Defaults
 DEFAULT_ORIENTATION = _get("DEFAULT_ORIENTATION", "landscape")  # portrait | landscape

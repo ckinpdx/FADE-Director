@@ -4,6 +4,15 @@
 # Session data (user audio, images, videos — never commit)
 sessions/
 
+# Model checkpoints (large binary files — download via setup_acestep.bat)
+checkpoints/
+
+# Logs
+*.log
+
+# Cache
+.cache/
+
 # Temporary / scratch files
 tmp/
 
@@ -13,6 +22,7 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+acestep_venv/
 *.pth
 
 # Frontend build artifacts

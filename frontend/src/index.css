@@ -805,6 +805,8 @@ button {
 
 .chat-send-btn:hover:not(:disabled) { background: var(--accent-hi); }
 .chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-stop-btn { background: #c0392b; }
+.chat-stop-btn:hover { background: #e74c3c; }
 
 /* ── Storyboard panel ──────────────────────────────────────────────────────── */
 
@@ -1126,6 +1128,19 @@ button {
   flex-direction: column;
   gap: 1px;
 }
+
+.suno-model-select {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  max-width: 180px;
+}
+.suno-model-select:disabled { opacity: 0.5; cursor: default; }
 
 .suno-mode-toggle {
   display: flex;
@@ -1451,6 +1466,21 @@ button {
   gap: 6px;
 }
 
+.take-row--done {
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.take-row--done:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg));
+}
+
+.take-row--selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+}
+
 .take-row--generating {
   display: flex;
   flex-direction: row;
@@ -1460,6 +1490,20 @@ button {
 
 .take-row--error {
   border-color: rgba(239, 68, 68, 0.4);
+}
+
+.take-select-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted);
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.take-select-dot--on {
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
 .take-row-top {

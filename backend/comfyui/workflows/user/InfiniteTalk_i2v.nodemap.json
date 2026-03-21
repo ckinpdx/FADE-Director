@@ -1,4 +1,6 @@
 {
+  "display_name":   "InfiniteTalk with HuMo",
+  "humo_resolution": true,
   "video_prompt":   "630",
   "negative_prompt":"629",
   "ltx_seed":       "474",

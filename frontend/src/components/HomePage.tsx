@@ -9,11 +9,19 @@ interface Project {
   save_path:    string
 }
 
+interface SongSession {
+  session_id: string
+  created_at: string
+  caption:    string
+  take_count: number
+}
+
 interface Props {
   onMakeVideo:   () => void
   onWriteSong:   () => void
   onMakeSong:    () => void
   onResume:      (sessionId: string, name: string, savePath: string) => void
+  onResumeSong:  (sessionId: string) => void
 }
 
 function phaseLabel(phase: string, n: number): string {
@@ -30,8 +38,9 @@ function phaseLabel(phase: string, n: number): string {
   }
 }
 
-export function HomePage({ onMakeVideo, onWriteSong, onResume }: Props) {
+export function HomePage({ onMakeVideo, onWriteSong, onMakeSong, onResume, onResumeSong }: Props) {
   const [projects,  setProjects]  = useState<Project[]>([])
+  const [songs,     setSongs]     = useState<SongSession[]>([])
   const [resuming,  setResuming]  = useState<string | null>(null)
   const [resumeErr, setResumeErr] = useState<string | null>(null)
 
@@ -39,6 +48,10 @@ export function HomePage({ onMakeVideo, onWriteSong, onResume }: Props) {
     fetch('/projects')
       .then(r => r.json())
       .then(d => setProjects(d.projects ?? []))
+      .catch(() => {})
+    fetch('/acestep/sessions')
+      .then(r => r.json())
+      .then(d => setSongs(d.sessions ?? []))
       .catch(() => {})
   }, [])
 
@@ -66,19 +79,7 @@ export function HomePage({ onMakeVideo, onWriteSong, onResume }: Props) {
       </div>
 
       <div className="mode-cards">
-        {/* Make a Video */}
-        <button className="mode-card mode-card--active" onClick={onMakeVideo}>
-          <div className="mode-card-icon">🎬</div>
-          <div className="mode-card-body">
-            <div className="mode-card-title">Make a Video</div>
-            <div className="mode-card-desc">
-              Upload a song. The director plans scenes, writes prompts, and generates
-              your music video with LTX-2 + HuMo.
-            </div>
-          </div>
-        </button>
-
-        {/* Write a Song — Suno / ACEStep */}
+        {/* Write a Song — Suno prompt assistant */}
         <button className="mode-card mode-card--active" onClick={onWriteSong}>
           <div className="mode-card-icon">✍️</div>
           <div className="mode-card-body">
@@ -90,18 +91,49 @@ export function HomePage({ onMakeVideo, onWriteSong, onResume }: Props) {
           </div>
         </button>
 
-        {/* Make a Song — ACEStep */}
-        <button className="mode-card mode-card--disabled" disabled>
+        {/* Make a Song — ACEStep local generator */}
+        <button className="mode-card mode-card--active" onClick={onMakeSong}>
           <div className="mode-card-icon">🎵</div>
           <div className="mode-card-body">
-            <div className="mode-card-title">Make a Song <span className="mode-card-badge">Under development</span></div>
+            <div className="mode-card-title">Make a Song</div>
             <div className="mode-card-desc">
               Generate music locally with ACE-Step 1.5. The agent interviews you,
               crafts the prompt, and runs inference on-device.
             </div>
           </div>
         </button>
+
+        {/* Make a Video */}
+        <button className="mode-card mode-card--active" onClick={onMakeVideo}>
+          <div className="mode-card-icon">🎬</div>
+          <div className="mode-card-body">
+            <div className="mode-card-title">Make a Video</div>
+            <div className="mode-card-desc">
+              Upload a song. The director plans scenes, writes prompts, and generates
+              your music video with LTX-2 + HuMo.
+            </div>
+          </div>
+        </button>
       </div>
+
+      {/* Recent songs */}
+      {songs.length > 0 && (
+        <div className="home-projects">
+          <p className="projects-list-heading">Recent songs</p>
+          <div className="projects-list">
+            {songs.map(s => (
+              <button
+                key={s.session_id}
+                className="project-row"
+                onClick={() => onResumeSong(s.session_id)}
+              >
+                <span className="project-row-name">{s.caption}</span>
+                <span className="project-row-state">{s.take_count} take{s.take_count !== 1 ? 's' : ''}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent projects */}
       {projects.length > 0 && (
