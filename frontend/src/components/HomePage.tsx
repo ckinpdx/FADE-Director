@@ -17,11 +17,13 @@ interface SongSession {
 }
 
 interface Props {
-  onMakeVideo:   () => void
-  onWriteSong:   () => void
-  onMakeSong:    () => void
-  onResume:      (sessionId: string, name: string, savePath: string) => void
-  onResumeSong:  (sessionId: string) => void
+  onMakeVideo:       () => void
+  onWriteSong:       () => void
+  onMakeSong:        () => void
+  onVerifySetup:     () => void
+  onManageWorkflows: () => void
+  onResume:          (sessionId: string, name: string, savePath: string) => void
+  onResumeSong:      (sessionId: string) => void
 }
 
 function phaseLabel(phase: string, n: number): string {
@@ -38,7 +40,7 @@ function phaseLabel(phase: string, n: number): string {
   }
 }
 
-export function HomePage({ onMakeVideo, onWriteSong, onMakeSong, onResume, onResumeSong }: Props) {
+export function HomePage({ onMakeVideo, onWriteSong, onMakeSong, onVerifySetup, onManageWorkflows, onResume, onResumeSong }: Props) {
   const [projects,  setProjects]  = useState<Project[]>([])
   const [songs,     setSongs]     = useState<SongSession[]>([])
   const [resuming,  setResuming]  = useState<string | null>(null)
@@ -111,6 +113,30 @@ export function HomePage({ onMakeVideo, onWriteSong, onMakeSong, onResume, onRes
             <div className="mode-card-desc">
               Upload a song. The director plans scenes, writes prompts, and generates
               your music video with LTX-2 + HuMo.
+            </div>
+          </div>
+        </button>
+
+        {/* Verify Setup */}
+        <button className="mode-card mode-card--active" onClick={onVerifySetup}>
+          <div className="mode-card-icon">🔧</div>
+          <div className="mode-card-body">
+            <div className="mode-card-title">Verify Setup</div>
+            <div className="mode-card-desc">
+              Check that all models, custom nodes, and LLM endpoints are present
+              and reachable.
+            </div>
+          </div>
+        </button>
+
+        {/* Manage Workflows */}
+        <button className="mode-card mode-card--active" onClick={onManageWorkflows}>
+          <div className="mode-card-icon">⚙️</div>
+          <div className="mode-card-body">
+            <div className="mode-card-title">Manage Workflows</div>
+            <div className="mode-card-desc">
+              Install custom ComfyUI workflows for image or video generation.
+              FADE auto-generates the node map from tagged nodes.
             </div>
           </div>
         </button>

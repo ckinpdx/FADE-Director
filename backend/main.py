@@ -186,8 +186,7 @@ async def list_workflows():
         {"id": "qie", "name": "Qwen Image Edit"},
     ]
     video_wfs = [
-        {"id": "humo",     "name": "InfiniteTalk with HuMo", "humo_resolution": True},
-        {"id": "ltx_humo", "name": "LTX with HuMo",          "humo_resolution": True},
+        {"id": "ltx_humo", "name": "LTX with HuMo", "humo_resolution": True},
         {"id": "ltx",      "name": "LTX"},
     ]
     if user_dir.exists():
@@ -217,6 +216,19 @@ async def list_workflows():
 # Session lifecycle
 # ---------------------------------------------------------------------------
 
+@app.get("/comfyui/loras")
+async def list_loras():
+    """Return LoRA filenames available in COMFYUI_MODEL_DIR/loras/."""
+    lora_dir = config.COMFYUI_MODEL_DIR / "loras"
+    if not lora_dir.exists():
+        return {"loras": []}
+    files = sorted(
+        p.name for p in lora_dir.iterdir()
+        if p.is_file() and p.suffix.lower() in (".safetensors", ".pt", ".ckpt")
+    )
+    return {"loras": files}
+
+
 @app.post("/sessions")
 async def create_session(
     audio:        UploadFile = File(...),
@@ -229,6 +241,8 @@ async def create_session(
     image_workflow:  str        = Form(default=None),
     video_workflow:  str        = Form(default=None),
     humo_resolution: int        = Form(default=None),
+    lora_name:       str        = Form(default=None),
+    lora_strength:   float      = Form(default=None),
     reference:       UploadFile = File(default=None),
 ):
     """
@@ -252,8 +266,10 @@ async def create_session(
     orient = orientation or config.DEFAULT_ORIENTATION
     w, h   = _orientation_dims(orient)
     iwf  = image_workflow  if (image_workflow  in ("zit", "qie")              or (image_workflow  or "").startswith("user/")) else "zit"
-    vwf  = video_workflow  if (video_workflow  in ("ltx_humo", "ltx", "humo") or (video_workflow  or "").startswith("user/")) else "ltx_humo"
-    hres = humo_resolution if humo_resolution in (1280, 1536, 1920)          else 1280
+    vwf  = video_workflow  if (video_workflow  in ("ltx_humo", "ltx") or (video_workflow  or "").startswith("user/")) else "ltx_humo"
+    hres  = humo_resolution if humo_resolution in (1280, 1536, 1920) else 1280
+    lname = lora_name.strip() if lora_name and lora_name.strip() else None
+    lstr  = lora_strength if lora_strength is not None else 0.6
     cfg = SessionConfig(
         width           = w,
         height          = h,
@@ -264,6 +280,8 @@ async def create_session(
         image_workflow  = iwf,
         video_workflow  = vwf,
         humo_resolution = hres,
+        lora_name       = lname,
+        lora_strength   = lstr,
     )
 
     session = Session(
@@ -358,6 +376,176 @@ _ANALYSIS_NAMES = {
     "vocals.wav", "instrumental.wav", "aligned.json",
     "intonation.json", "music.json", "raw_lyrics.txt",
 }
+
+
+# ── Setup config + browse ─────────────────────────────────────────────────────
+
+_ENV_PATH = Path(__file__).parent.parent / ".env"
+
+
+def _env_set(key: str, value: str) -> None:
+    """Upsert a key=value line in .env. Creates the file if absent."""
+    lines: list[str] = []
+    found = False
+    if _ENV_PATH.exists():
+        for line in _ENV_PATH.read_text(encoding="utf-8").splitlines():
+            if line.strip().startswith(f"{key}=") or line.strip().startswith(f"# {key}="):
+                lines.append(f"{key}={value}")
+                found = True
+            else:
+                lines.append(line)
+    if not found:
+        lines.append(f"{key}={value}")
+    _ENV_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+@app.get("/setup/browse")
+async def setup_browse():
+    """Open a native OS folder picker and return the selected path."""
+    def _pick() -> str:
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes("-topmost", True)
+            path = filedialog.askdirectory()
+            root.destroy()
+            return path or ""
+        except Exception:
+            return ""
+
+    path = await asyncio.to_thread(_pick)
+    return {"path": path or None}
+
+
+@app.get("/setup/config")
+async def setup_get_config():
+    return {
+        "comfyui_dir":   str(config.COMFYUI_DIR),
+        "model_dir":     str(config.COMFYUI_MODEL_DIR),
+    }
+
+
+@app.post("/setup/config")
+async def setup_save_config(body: dict):
+    """Persist COMFYUI_DIR and COMFYUI_MODEL_DIR to .env."""
+    if "comfyui_dir" in body and body["comfyui_dir"]:
+        _env_set("COMFYUI_DIR", body["comfyui_dir"])
+    if "model_dir" in body and body["model_dir"]:
+        _env_set("COMFYUI_MODEL_DIR", body["model_dir"])
+    return {"ok": True}
+
+
+# ── Setup validation ──────────────────────────────────────────────────────────
+
+_CUSTOM_NODES = [
+    {"key": "ltx_video",       "node": "LTXVConditioning",          "package": "ComfyUI-LTXVideo"},
+    {"key": "kjnodes",         "node": "DiffusionModelLoaderKJ",    "package": "ComfyUI-KJNodes"},
+    {"key": "vhs",             "node": "VHS_LoadAudioUpload",       "package": "ComfyUI-VideoHelperSuite"},
+    {"key": "clownshark",      "node": "ClownsharKSampler_Beta",    "package": "ClownsharK"},
+    {"key": "melbandroformer", "node": "MelBandRoFormerModelLoader","package": "MelBandRoFormer"},
+    {"key": "custom_scripts",  "node": "SimpleMath+",               "package": "ComfyUI-Custom-Scripts"},
+    {"key": "wan_experiments", "node": "WanEx_HuMoImageToVideo",    "package": "WanExperiments",
+     "url": "https://github.com/drozbay/WanExperiments"},
+]
+
+_MODELS = [
+    # ZIT T2I
+    {"key": "zit_unet",    "workflow": "ZIT T2I",   "file": "z_image_turbo_bf16.safetensors"},
+    {"key": "zit_clip",    "workflow": "ZIT T2I",   "file": "qwen_3_4b.safetensors"},
+    {"key": "zit_vae",     "workflow": "ZIT T2I",   "file": "ae.safetensors"},
+    # LTX I2V + HuMo
+    {"key": "ltx_unet",    "workflow": "LTX+HuMo", "file": "ltx2-phr00tmerge-sfw-v5.safetensors"},
+    {"key": "ltx_vvae",    "workflow": "LTX+HuMo", "file": "LTX2_video_vae_bf16.safetensors"},
+    {"key": "ltx_avae",    "workflow": "LTX+HuMo", "file": "LTX2_audio_vae_bf16.safetensors"},
+    {"key": "ltx_upscale", "workflow": "LTX+HuMo", "file": "ltx-2.3-spatial-upscaler-x2-1.1.safetensors"},
+    {"key": "humo_unet",   "workflow": "LTX+HuMo", "file": "humo_17B_fp16.safetensors"},
+    {"key": "humo_lora",   "workflow": "LTX+HuMo", "file": "lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank128_bf16.safetensors"},
+    {"key": "wan_clip",    "workflow": "LTX+HuMo", "file": "umt5_xxl_fp8_e4m3fn_scaled.safetensors"},
+    {"key": "wan_vae",     "workflow": "LTX+HuMo", "file": "Wan2_1_VAE_bf16.safetensors"},
+    {"key": "whisper_enc", "workflow": "LTX+HuMo", "file": "whisper_large_v3_encoder_fp16.safetensors"},
+]
+
+_LLM_MODELS = [
+    {"key": "agent",  "label": "Agent (qwen3.5-35b)", "model": config.AGENT_MODEL},
+    {"key": "omni",   "label": "Omni (Qwen2.5-Omni)", "model": config.OMNI_MODEL},
+]
+
+
+@app.get("/setup/validate")
+async def setup_validate(comfyui_dir: str | None = None, model_dir: str | None = None):
+    import httpx
+    from pathlib import Path as _Path
+
+    results: dict = {"models": {}, "nodes": {}, "llm": {}, "model_dir": ""}
+
+    # ── Model files ───────────────────────────────────────────────────────────
+    # model_dir explicit > comfyui_dir/models > config
+    if model_dir:
+        mdir = _Path(model_dir).resolve()
+    elif comfyui_dir:
+        mdir = _Path(comfyui_dir).resolve() / "models"
+    else:
+        mdir = config.COMFYUI_MODEL_DIR
+    results["model_dir"] = str(mdir)
+
+    # Build a filename → path index once so we don't glob per model
+    _model_index: dict[str, str] = {}
+    if mdir.exists():
+        for p in mdir.rglob("*"):
+            if p.is_file():
+                _model_index[p.name] = str(p)
+
+    for m in _MODELS:
+        found_path = _model_index.get(m["file"])
+        results["models"][m["key"]] = {
+            "file":     m["file"],
+            "workflow": m["workflow"],
+            "path":     found_path or str(mdir / m["file"]),
+            "ok":       found_path is not None,
+        }
+
+    # ── Custom nodes (via ComfyUI /object_info) ───────────────────────────────
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        for n in _CUSTOM_NODES:
+            entry: dict = {"node": n["node"], "package": n["package"], "ok": False}
+            if "url" in n:
+                entry["url"] = n["url"]
+            try:
+                r = await client.get(f"{config.COMFYUI_URL}/object_info/{n['node']}")
+                entry["ok"] = r.status_code == 200
+            except Exception:
+                pass
+            results["nodes"][n["key"]] = entry
+
+        # ── LLM reachability — GET /v1/models, check model name present ───────
+        try:
+            r = await client.get(f"{config.AGENT_URL}/v1/models")
+            if r.status_code == 200:
+                model_ids = {m.get("id", "") for m in r.json().get("data", [])}
+                for lm in _LLM_MODELS:
+                    results["llm"][lm["key"]] = {
+                        "label": lm["label"],
+                        "model": lm["model"],
+                        "ok":    lm["model"] in model_ids,
+                    }
+            else:
+                raise ValueError(f"status {r.status_code}")
+        except Exception:
+            for lm in _LLM_MODELS:
+                results["llm"][lm["key"]] = {
+                    "label": lm["label"],
+                    "model": lm["model"],
+                    "ok":    False,
+                }
+
+    results["all_ok"] = (
+        all(v["ok"] for v in results["models"].values()) and
+        all(v["ok"] for v in results["nodes"].values()) and
+        all(v["ok"] for v in results["llm"].values())
+    )
+    return results
 
 
 @app.get("/projects")
@@ -1719,6 +1907,145 @@ async def _run_acestep_generation(entry: _AceStepEntry, params: dict) -> None:
         await entry.push("gen_error", {"take_n": take_n, "message": str(exc)})
     finally:
         entry.busy_gen = False
+
+
+# ---------------------------------------------------------------------------
+# User workflow management
+# ---------------------------------------------------------------------------
+
+# FADE-title → nodemap key  (for auto-generating node maps from uploaded workflows)
+_FADE_TITLE_MAP: dict[str, str] = {
+    "fade: positive prompt":    "positive",
+    "fade: negative prompt":    "negative_prompt",
+    "fade: seed":               "seed",
+    "fade: seed 2":             "seed_2",
+    "fade: width":              "width",
+    "fade: height":             "height",
+    "fade: save":               "save",
+    "fade: load image":         "load_image",
+    # I2V extras
+    "fade: start frame":        "start_frame",
+    "fade: audio file":         "audio_file",
+    "fade: audio start":        "audio_start",
+    "fade: frame count":        "frame_count",
+    "fade: fps":                "fps",
+    "fade: fps conditioning":   "fps_conditioning",
+    "fade: humo seed":          "humo_seed",
+    "fade: humo long edge":     "humo_long_edge",
+}
+
+_USER_WF_DIR = Path("backend/comfyui/workflows/user")
+
+
+def _build_nodemap_from_workflow(wf: dict) -> dict:
+    """Scan a workflow dict for FADE-titled nodes and return a nodemap dict."""
+    nodemap: dict[str, str] = {}
+    for node_id, node in wf.items():
+        title = node.get("_meta", {}).get("title", "").strip().lower()
+        key = _FADE_TITLE_MAP.get(title)
+        if key:
+            nodemap[key] = str(node_id)
+    return nodemap
+
+
+@app.get("/workflows/user")
+async def list_user_workflows():
+    """Return installed user workflows with metadata."""
+    _USER_WF_DIR.mkdir(parents=True, exist_ok=True)
+    entries = []
+    for wf_file in sorted(_USER_WF_DIR.glob("*.json")):
+        stem = wf_file.stem
+        if stem.startswith("FADE_") or stem.endswith(".nodemap"):
+            continue  # example stubs and nodemap files
+        nodemap_path = _USER_WF_DIR / f"{stem}.nodemap.json"
+        wf_type = "i2v" if "_i2v" in stem else "t2i" if "_t2i" in stem else "unknown"
+        display_name = stem
+        if nodemap_path.exists():
+            try:
+                nm = json.loads(nodemap_path.read_text(encoding="utf-8"))
+                display_name = nm.get("display_name", stem)
+            except Exception:
+                pass
+        entries.append({
+            "stem":         stem,
+            "display_name": display_name,
+            "type":         wf_type,
+            "has_nodemap":  nodemap_path.exists(),
+        })
+    return {"workflows": entries}
+
+
+@app.post("/workflows/user")
+async def upload_user_workflow(
+    workflow: UploadFile = File(...),
+    display_name: str    = Form(...),
+    wf_type: str         = Form(...),  # "t2i" or "i2v"
+):
+    """Upload a ComfyUI API-format workflow JSON. Auto-generates nodemap from FADE-titled nodes."""
+    if wf_type not in ("t2i", "i2v"):
+        raise HTTPException(400, "wf_type must be 't2i' or 'i2v'")
+
+    raw = await workflow.read()
+    try:
+        wf_data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(400, f"Invalid JSON: {e}")
+
+    # Derive a safe filesystem stem from display_name + type
+    safe = re.sub(r"[^\w\-]", "_", display_name.strip()).strip("_") or "workflow"
+    stem = f"{safe}_{wf_type}"
+
+    _USER_WF_DIR.mkdir(parents=True, exist_ok=True)
+    wf_path      = _USER_WF_DIR / f"{stem}.json"
+    nodemap_path = _USER_WF_DIR / f"{stem}.nodemap.json"
+
+    wf_path.write_text(json.dumps(wf_data, ensure_ascii=False), encoding="utf-8")
+
+    nodemap = _build_nodemap_from_workflow(wf_data)
+    nodemap["display_name"] = display_name
+
+    required_t2i = {"positive", "seed", "width", "height", "save"}
+    required_i2v = {"start_frame", "audio_file", "frame_count", "save"}
+    required = required_t2i if wf_type == "t2i" else required_i2v
+    missing = sorted(k for k in required if k not in nodemap)
+
+    if missing:
+        # Reverse map: nodemap key → FADE node title the user must set
+        _key_to_title = {v: k for k, v in _FADE_TITLE_MAP.items()}
+        details = [
+            f'  • node titled "{_key_to_title.get(k, "FADE: " + k.replace("_", " ").title())}"'
+            for k in missing
+        ]
+        raise HTTPException(
+            422,
+            f"Workflow rejected — {len(missing)} required node title(s) not found:\n"
+            + "\n".join(details)
+            + "\n\nRight-click each node in ComfyUI → Title → set the exact title shown above, "
+            "then re-export as API format and re-upload.",
+        )
+
+    nodemap_path.write_text(json.dumps(nodemap, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    return {
+        "stem":    stem,
+        "nodemap": nodemap,
+    }
+
+
+@app.delete("/workflows/user/{stem}")
+async def delete_user_workflow(stem: str):
+    """Delete a user workflow and its nodemap."""
+    if "/" in stem or "\\" in stem or ".." in stem:
+        raise HTTPException(400, "Invalid stem")
+    deleted = []
+    for suffix in (".json", ".nodemap.json"):
+        p = _USER_WF_DIR / f"{stem}{suffix}"
+        if p.exists():
+            p.unlink()
+            deleted.append(p.name)
+    if not deleted:
+        raise HTTPException(404, "Workflow not found")
+    return {"deleted": deleted}
 
 
 # ---------------------------------------------------------------------------

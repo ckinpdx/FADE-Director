@@ -39,13 +39,11 @@ All inference is local. No cloud services required.
 
 **Image workflows — choose one per session:**
 
-*ZIT with Reactor* (default):
-- `z_image_turbo_bf16.safetensors` — main diffusion model (UNETLoader, lumina2/AuraFlow)
-- `qwen_3_4b.safetensors` — CLIP text encoder (lumina2 type)
-- `ae.safetensors` — VAE
-- `gonzalomoXLFluxPony_v40UnityXLDMD.safetensors` — refinement checkpoint
-- `NoeveV3.safetensors` — Reactor face model (user-specific)
-- Ultralytics face/body detection models + SAM model (for FaceDetailer)
+*ZIT* (default) — clean z_image_turbo pipeline with a character LoRA slot:
+- `unet/z_image_turbo_bf16.safetensors` — main diffusion model (lumina2/AuraFlow)
+- `clip/qwen_3_4b.safetensors` — CLIP text encoder (lumina2 type)
+- `vae/ae.safetensors` — VAE
+- A character LoRA of your choice in `loras/` — selected per session at upload
 
 *Qwen Image Edit*:
 - `Qwen-Rapid-AIO-NSFW-v23.safetensors` — checkpoint (CheckpointLoaderKJ)
@@ -54,30 +52,27 @@ All inference is local. No cloud services required.
 **Video workflows — choose one per session:**
 
 *LTX with HuMo* (default) and *LTX only*:
-- `ltx2-phr00tmerge-sfw-v5.safetensors` — LTX-2 checkpoint
-- `LTX2_video_vae_bf16.safetensors` + `LTX2_audio_vae_bf16.safetensors`
-- `ltx-2-spatial-upscaler-x2-1.0.safetensors`
+- `diffusion_models/ltx2-phr00tmerge-sfw-v5.safetensors` — LTX-2 checkpoint
+- `vae/LTX2_video_vae_bf16.safetensors` + `vae/LTX2_audio_vae_bf16.safetensors`
+- `latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors`
 
-*LTX with HuMo* and *HuMo only*:
-- `humo_17B_fp16.safetensors` — HuMo model
-- `lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank128_bf16.safetensors` — HuMo LoRA
-- `umt5_xxl_fp8_e4m3fn_scaled.safetensors` — Wan2.1 CLIP
-- `Wan2_1_VAE_bf16.safetensors`
-- `whisper_large_v3_encoder_fp16.safetensors`
+*LTX with HuMo* only (HuMo refinement pass):
+- `diffusion_models/humo_17B_fp16.safetensors`
+- `loras/lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank128_bf16.safetensors`
+- `clip/umt5_xxl_fp8_e4m3fn_scaled.safetensors` — Wan2.1 CLIP
+- `vae/Wan2_1_VAE_bf16.safetensors`
+- `clip/whisper_large_v3_encoder_fp16.safetensors`
 
 ### Required ComfyUI custom nodes
 
-**ZIT with Reactor:**
-- [ComfyUI-ReActor](https://github.com/Gourieff/comfyui-reactor-node)
-- [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack)
+**Video workflows only** — no custom nodes required for ZIT T2I:
 
-**All video workflows:**
 - [ComfyUI-LTXVideo](https://github.com/Lightricks/ComfyUI-LTXVideo)
 - [ComfyUI-VideoHelperSuite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite)
-- [ComfyUI-WanVideoWrapper](https://github.com/kijai/ComfyUI-WanVideoWrapper)
 - [ComfyUI-KJNodes](https://github.com/kijai/ComfyUI-KJNodes)
+- [ComfyUI-Custom-Scripts](https://github.com/pythongosssss/ComfyUI-Custom-Scripts)
 - [ClownsharK samplers](https://github.com/ClownsharKent/ComfyUI-ClownsharKSamplers)
-- Audio encoder nodes for HuMo whisper conditioning
+- MelBandRoFormer nodes (for vocal separation inside the video workflow)
 - [WanExperiments](https://github.com/drozbay/WanExperiments) — **not in ComfyUI Manager, must be cloned manually** into `ComfyUI/custom_nodes/`
 
 ---
@@ -94,7 +89,7 @@ All inference is local. No cloud services required.
 
 > **CPU fallback:** If you don't have an NVIDIA GPU, Demucs will still run on CPU — just slower. Delete the `.venv` folder if it was created with GPU support and you need to switch, or vice versa.
 
-All ComfyUI workflow files and node maps ship with the repo in `backend/comfyui/workflows/` — no additional workflow setup required.
+All built-in ComfyUI workflow files and node maps ship with the repo in `backend/comfyui/workflows/` — no additional workflow setup required.
 
 ---
 
@@ -110,8 +105,10 @@ OMNI_MODEL=Qwen2.5-Omni-7B
 
 # ComfyUI
 COMFYUI_URL=http://127.0.0.1:8188
-COMFYUI_INPUT_DIR=C:/ComfyUI/input
+COMFYUI_DIR=C:/ComfyUI            # root install folder; input/output/models derived from here
+COMFYUI_INPUT_DIR=C:/ComfyUI/input    # override if your layout differs
 COMFYUI_OUTPUT_DIR=C:/ComfyUI/output
+COMFYUI_MODEL_DIR=C:/ComfyUI/models   # used by setup verification and LoRA picker
 
 # Service
 SERVICE_PORT=8001
@@ -130,7 +127,6 @@ SCENE_MAX_SECONDS=20
 |---|---|---|
 | ZIT / Qwen Image Edit (T2I) | 2048×1152 | 1152×2048 |
 | LTX with HuMo / LTX only (I2V) | 2560×1440 | 1080×1920 |
-| HuMo only | controlled by long edge (1536 landscape / 1152 portrait) | |
 
 ---
 
@@ -146,92 +142,11 @@ Open `http://localhost:8001`.
 
 ---
 
-## Using your own workflows
+## Setup verification
 
-FADE patches specific nodes in each workflow at runtime. User-provided workflows live in `backend/comfyui/workflows/user/` and appear automatically as buttons on the upload screen — no code changes needed.
+The home screen has a **Verify Setup** card. Click it to check that all model files exist on disk, all required custom nodes are installed in ComfyUI, and both LLM endpoints are reachable. Each item shows pass/fail. Missing items link to the relevant repo.
 
-### Naming convention
-
-Each workflow requires two files with the same stem in the `user/` folder:
-
-- `YourName_t2i.json` + `YourName_t2i.nodemap.json` — image workflow (button label: `YourName_t2i`)
-- `YourName_i2v.json` + `YourName_i2v.nodemap.json` — video workflow (button label: `YourName_i2v`)
-
-The `_t2i` / `_i2v` suffix tells FADE which selector the workflow appears in. The full stem (before `.json`) is used as-is for the button label, so name your files accordingly.
-
-Example stubs showing required nodemap keys are in `user/FADE_t2i.example` and `user/FADE_i2v.example`.
-
-Reference workflows with all required nodes pre-tagged are available to download from the running service at `http://localhost:8001/workflow-templates/` — open them in ComfyUI to see exactly which nodes carry each title before building your own.
-
-### Step 1 — Tag your nodes in ComfyUI
-
-Right-click each node → **Title** and set the exact title string listed below. Only the title needs to change — the node type, connections, and all other settings stay as-is.
-
-**Image workflow — 6 required:**
-
-| Title | Node to tag |
-|---|---|
-| `FADE: Positive Prompt` | PrimitiveStringMultiline — positive text |
-| `FADE: Negative Prompt` | PrimitiveStringMultiline — negative text |
-| `FADE: Seed` | PrimitiveInt — seed value |
-| `FADE: Width` | PrimitiveInt — output width |
-| `FADE: Height` | PrimitiveInt — output height |
-| `FADE: Save` | SaveImage node |
-
-Optional — only tag if present in your workflow:
-
-| Title | Node to tag |
-|---|---|
-| `FADE: Load Image` | LoadImage — reference image input (QIE-style workflows) |
-
-**Video workflow — 8 required:**
-
-| Title | Node to tag |
-|---|---|
-| `FADE: Positive Prompt` | PrimitiveStringMultiline — positive text |
-| `FADE: Start Frame` | LoadImage (receives the approved PNG from the image phase) |
-| `FADE: Audio File` | VHS_LoadAudioUpload (receives the full session audio file) |
-| `FADE: Frame Count` | PrimitiveInt — snapped 8k+1 frame count |
-| `FADE: Width` | PrimitiveInt |
-| `FADE: Height` | PrimitiveInt |
-| `FADE: Seed` | PrimitiveInt — seed value |
-| `FADE: Save` | SaveVideo node |
-
-Optional — only tag if present in your workflow:
-
-| Title | Node to tag |
-|---|---|
-| `FADE: Negative Prompt` | PrimitiveStringMultiline — negative text |
-| `FADE: Audio Start` | PrimitiveFloat — scene start time in seconds (omit if your audio node takes `start_time` directly) |
-| `FADE: Seed 2` | Second PrimitiveInt seed (2-pass workflows) |
-| `FADE: HuMo Seed` | HuMo sampler seed node |
-| `FADE: HuMo Long Edge` | PrimitiveInt — HuMo refinement long edge |
-| `FADE: FPS` | CreateVideo fps field |
-| `FADE: FPS Conditioning` | LTXVConditioning frame_rate field |
-
-### Step 2 — Export as API format
-
-In ComfyUI: **Settings → Enable Dev Mode Options**, then use the **Save (API Format)** button (not the regular Save). This produces the JSON structure FADE reads.
-
-### Step 3 — Build the node map and drop files
-
-Run `build_node_map.py` against your exported workflow to generate the nodemap file:
-
-```
-python backend/comfyui/build_node_map.py path/to/YourName_i2v.json
-```
-
-This validates all required titles are present and writes the nodemap. It prints each matched node with its ID and class type so you can verify the right nodes were found.
-
-Then drop both files into `backend/comfyui/workflows/user/`:
-
-```
-backend/comfyui/workflows/user/
-    YourName_i2v.json
-    YourName_i2v.nodemap.json
-```
-
-Restart FADE and the workflow appears as a new button on the upload screen.
+You can set the ComfyUI folder and models folder directly in the Verify Setup page — no need to edit `.env` by hand. Use **Save to .env** to persist the paths. This check requires `COMFYUI_MODEL_DIR` to point at a directory that contains your model files.
 
 ---
 
@@ -242,8 +157,10 @@ Set at upload time in the UI — these are locked for the lifetime of the sessio
 | Option | Choices |
 |---|---|
 | Orientation | Landscape, Portrait |
-| Image Workflow | ZIT with Reactor, Qwen Image Edit |
-| Video Workflow | LTX with HuMo, LTX, HuMo |
+| Image Workflow | ZIT, Qwen Image Edit, any installed user workflow |
+| Character LoRA | Any `.safetensors` in `COMFYUI_MODEL_DIR/loras/` — optional, with configurable strength. Can also be set by dropping a file onto the LoRA field. |
+| Video Workflow | LTX with HuMo, LTX, any installed user workflow |
+| Final Resolution | 1280 / 1536 / 1920 (long edge, LTX with HuMo only) |
 
 ---
 
@@ -253,11 +170,71 @@ Set at upload time in the UI — these are locked for the lifetime of the sessio
 
 **Don't ask the agent to change scene boundaries.** The agent doesn't compute timestamps — it calls an algorithmic segmenter. Asking it to move a cut to a specific time tends to produce hallucinated or incorrect values. Instead: ask for a different scene count, say "reroll" to get a different cut placement at the same count, or adjust boundaries directly in the scene cards.
 
-**HuMo-only: the reference image is a soft guide, not a hard lock.** In the LTX workflows, the approved PNG is conditioning input — the video opens on that exact frame. In HuMo-only, the reference image influences style and subject but doesn't anchor the first frame. Write the video prompt with the same environmental detail you'd put in an image prompt: setting, lighting, color, atmosphere. If you rely on the image to carry that context, the output will drift.
-
-**HuMo-only: expect consistency loss at context window boundaries.** HuMo processes video in overlapping context windows. Across window seams, lighting, color grade, and fine character details can shift visibly. This is a model-level constraint, not a prompt issue. Shorter scenes reduce the number of window transitions and tend to produce more consistent output.
-
 **The style bible must go through the agent.** The style bible is written by the agent in chat and committed via a tool call — it isn't a form you fill in. Let the agent write it, review it in the sidebar, request edits in chat if needed, and confirm. Skipping or manually editing `prompts.json` before the agent commits it will break the prompt generation phase.
+
+---
+
+## Using your own workflows
+
+The home screen has a **Manage Workflows** card. Upload a ComfyUI API-format workflow JSON and FADE auto-generates the node map by scanning for nodes with `FADE:`-prefixed titles. The workflow then appears as a selectable option on the upload screen.
+
+Workflows with missing required node titles are rejected at import with a specific message listing which titles need to be added.
+
+### Step 1 — Tag your nodes in ComfyUI
+
+Right-click each node → **Title** and set the exact title string listed below.
+
+**Image workflow — required:**
+
+| Title | Node to tag |
+|---|---|
+| `FADE: Positive Prompt` | PrimitiveStringMultiline — positive text |
+| `FADE: Negative Prompt` | PrimitiveStringMultiline — negative text |
+| `FADE: Seed` | PrimitiveInt — seed value |
+| `FADE: Width` | PrimitiveInt — output width |
+| `FADE: Height` | PrimitiveInt — output height |
+| `FADE: Save` | SaveImage node |
+
+Optional:
+
+| Title | Node to tag |
+|---|---|
+| `FADE: Load Image` | LoadImage — reference image input (QIE-style workflows) |
+
+**Video workflow — required:**
+
+| Title | Node to tag |
+|---|---|
+| `FADE: Positive Prompt` | PrimitiveStringMultiline — positive text |
+| `FADE: Start Frame` | LoadImage (receives the approved PNG from the image phase) |
+| `FADE: Audio File` | VHS_LoadAudioUpload (receives the full session audio file) |
+| `FADE: Frame Count` | PrimitiveInt — snapped 8k+1 frame count |
+| `FADE: Save` | SaveVideo node |
+
+Optional:
+
+| Title | Node to tag |
+|---|---|
+| `FADE: Negative Prompt` | PrimitiveStringMultiline — negative text |
+| `FADE: Width` | PrimitiveInt |
+| `FADE: Height` | PrimitiveInt |
+| `FADE: Seed` | PrimitiveInt — seed value |
+| `FADE: Audio Start` | PrimitiveFloat — scene start time in seconds (omit if your audio node takes `start_time` directly) |
+| `FADE: Seed 2` | Second PrimitiveInt seed (2-pass workflows) |
+| `FADE: HuMo Seed` | HuMo sampler seed node |
+| `FADE: HuMo Long Edge` | PrimitiveInt — HuMo refinement long edge |
+| `FADE: FPS` | CreateVideo fps field |
+| `FADE: FPS Conditioning` | LTXVConditioning frame_rate field |
+
+### Step 2 — Export as API format
+
+In ComfyUI: **Settings → Enable Dev Mode Options**, then use the **Save (API Format)** button (not the regular Save).
+
+### Step 3 — Install via Manage Workflows
+
+Open the **Manage Workflows** page from the home screen. Enter a display name, select Image or Video type, choose the exported JSON file, and click **Install**. FADE validates the node map and rejects the upload with a specific error if any required titles are missing.
+
+User-installed workflows are stored in `backend/comfyui/workflows/user/` and are excluded from git.
 
 ---
 
@@ -276,10 +253,10 @@ videos/archive/     — rejected regen history
 final.mp4           — export output
 ```
 
-Sessions survive server restarts — the UI restores your last saved phase automatically.
+Sessions survive server restarts — the UI restores your last saved phase automatically. Any scene that was mid-generation when the server stopped is automatically reset to its last stable state on resume.
 
 ---
 
 ## Suno assistant
 
-FADE includes a Suno prompt engineering assistant at `/suno`. A dedicated chat agent interviews you about the song you want to create and produces a complete Suno prompt package: style tags, structured lyrics with section markers and metatags, and generation notes. No audio analysis or ComfyUI involved.
+FADE includes a Suno prompt engineering assistant. A dedicated chat agent interviews you about the song you want to create and produces a complete Suno prompt package: style tags, structured lyrics with section markers and metatags, and generation notes. No audio analysis or ComfyUI involved.

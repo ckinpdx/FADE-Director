@@ -46,9 +46,11 @@ class SessionConfig:
     orientation:   str   = "landscape"  # portrait | landscape
     scene_min_s:   float = 3.0
     scene_max_s:   float = 20.0
-    image_workflow:  str   = "zit"        # zit | qie — set at session creation
-    video_workflow:  str   = "ltx_humo"   # ltx_humo | ltx | humo — set at session creation
-    humo_resolution: int   = 1280         # HuMo long-edge for landscape (1280 | 1536 | 1920)
+    image_workflow:  str        = "zit"        # zit | qie — set at session creation
+    video_workflow:  str        = "ltx_humo"   # ltx_humo | ltx — set at session creation
+    humo_resolution: int        = 1280         # HuMo long-edge for landscape (1280 | 1536 | 1920)
+    lora_name:       str | None = None         # character LoRA filename (loras/ subdir)
+    lora_strength:   float      = 0.6
     base_negative: str   = (
         "blurry, distorted, low quality, artifacts, watermark, text, "
         "duplicate, ugly, deformed, mutated, out of frame"
@@ -250,6 +252,8 @@ class Session:
                 "image_workflow":  self.config.image_workflow,
                 "video_workflow":  self.config.video_workflow,
                 "humo_resolution": self.config.humo_resolution,
+                "lora_name":       self.config.lora_name,
+                "lora_strength":   self.config.lora_strength,
             },
         }
         (self.session_dir / "session.json").write_text(
@@ -308,6 +312,8 @@ class Session:
             image_workflow  = cfg_d.get("image_workflow",  "zit"),
             video_workflow  = cfg_d.get("video_workflow",  "ltx_humo"),
             humo_resolution = cfg_d.get("humo_resolution", 1280),
+            lora_name       = cfg_d.get("lora_name")  or None,
+            lora_strength   = cfg_d.get("lora_strength", 0.6),
         )
 
         sw  = meta.get("seg_weights")
@@ -365,7 +371,41 @@ class Session:
         if "phase" not in meta:
             session.phase = session._infer_phase()
 
+        # Reset any in-flight generation statuses left by a crash or restart.
+        # "generating" means the server died mid-run — check the actual file on
+        # disk to decide whether to promote to "done" or revert to "planned".
+        session._reset_stale_generating()
+
         return session
+
+    def _reset_stale_generating(self) -> None:
+        """
+        On session load, any scene with status="generating" was interrupted by a
+        crash or server restart. Resolve by checking whether the output file
+        actually landed on disk:
+          - file exists  → promote to "done" (generation completed before crash)
+          - no file      → revert to "planned" (generation never finished)
+        Persists the corrected prompts.json only if at least one scene was changed.
+        """
+        if not self.prompts_path.exists():
+            return
+        data    = self.load_prompts()
+        scenes  = data.get("scenes", {})
+        changed = False
+
+        for scene in scenes.values():
+            if scene.get("image_status") == "generating":
+                p = scene.get("image_path")
+                scene["image_status"] = "done" if (p and Path(p).exists()) else "planned"
+                changed = True
+
+            if scene.get("video_status") == "generating":
+                p = scene.get("video_path")
+                scene["video_status"] = "done" if (p and Path(p).exists()) else "planned"
+                changed = True
+
+        if changed:
+            self.save_prompts(data)
 
     def _infer_phase(self) -> str:
         """Fallback phase inference for legacy session dirs without a stored phase."""

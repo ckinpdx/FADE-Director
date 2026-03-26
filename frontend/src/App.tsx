@@ -8,11 +8,13 @@ import { Storyboard } from './components/Storyboard'
 import { SunoPage } from './components/SunoPage'
 import { ACEStepPage } from './components/ACEStepPage'
 import type { ACEStepPrefill } from './components/ACEStepPage'
+import { SetupCheck } from './components/SetupCheck'
+import { WorkflowManager } from './components/WorkflowManager'
 
 let msgIdSeq = 0
 function nextId() { return ++msgIdSeq }
 
-type Page = 'home' | 'setup' | 'director' | 'suno' | 'acestep'
+type Page = 'home' | 'verify' | 'workflows' | 'setup' | 'director' | 'suno' | 'acestep'
 
 // ── Generation-button visibility helpers ──────────────────────────────────────
 
@@ -300,10 +302,20 @@ export default function App() {
         onMakeVideo={() => setPage('setup')}
         onWriteSong={() => setPage('suno')}
         onMakeSong={() => { setAceStepSessionId(undefined); setAceStepBack('home'); setPage('acestep') }}
+        onVerifySetup={() => setPage('verify')}
+        onManageWorkflows={() => setPage('workflows')}
         onResume={(sid, name, path) => enterDirector(sid, name, path, true)}
         onResumeSong={(sid) => { setAceStepSessionId(sid); setAceStepPrefill(undefined); setAceStepBack('home'); setPage('acestep') }}
       />
     )
+  }
+
+  if (page === 'verify') {
+    return <SetupCheck onBack={() => setPage('home')} />
+  }
+
+  if (page === 'workflows') {
+    return <WorkflowManager onBack={() => setPage('home')} />
   }
 
   if (page === 'suno') {

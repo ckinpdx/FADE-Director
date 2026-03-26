@@ -4,6 +4,8 @@ import type { DragEvent, ChangeEvent } from 'react'
 interface WorkflowEntry { id: string; name: string; humo_resolution?: boolean }
 interface Workflows { image: WorkflowEntry[]; video: WorkflowEntry[] }
 
+const LORA_NONE = '__none__'
+
 const FALLBACK_WORKFLOWS: Workflows = {
   image: [{ id: 'zit', name: 'ZIT with Reactor' }, { id: 'qie', name: 'Qwen Image Edit' }],
   video: [{ id: 'ltx_humo', name: 'LTX with HuMo', humo_resolution: true }, { id: 'ltx', name: 'LTX' }],
@@ -31,9 +33,15 @@ export function AudioUpload({ onBack, onSessionReady, prefillAudioUrl, prefillLy
   const [videoWorkflow,  setVideoWorkflow]  = useState('ltx_humo')
   const [humoResolution, setHumoResolution] = useState<1280 | 1536 | 1920>(1280)
   const [workflows,      setWorkflows]      = useState<Workflows>(FALLBACK_WORKFLOWS)
+  const [loras,          setLoras]          = useState<string[]>([])
+  const [loraName,       setLoraName]       = useState<string>(LORA_NONE)
+  const [loraStrength,   setLoraStrength]   = useState<string>('0.6')
+  const [loraDragging,   setLoraDragging]   = useState(false)
+  const [loraTextMode,   setLoraTextMode]   = useState(false)
 
   useEffect(() => {
     fetch('/workflows').then(r => r.json()).then(setWorkflows).catch(() => {})
+    fetch('/comfyui/loras').then(r => r.json()).then(d => setLoras(d.loras ?? [])).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -77,6 +85,10 @@ export function AudioUpload({ onBack, onSessionReady, prefillAudioUrl, prefillLy
       form.append('video_workflow', videoWorkflow)
       if (workflows.video.find(w => w.id === videoWorkflow)?.humo_resolution)
         form.append('humo_resolution', String(humoResolution))
+      if (loraName !== LORA_NONE) {
+        form.append('lora_name', loraName)
+        form.append('lora_strength', loraStrength)
+      }
       if (refFile) form.append('reference', refFile)
 
       const r = await fetch('/sessions', { method: 'POST', body: form })
@@ -216,6 +228,75 @@ export function AudioUpload({ onBack, onSessionReady, prefillAudioUrl, prefillLy
           ))}
         </div>
       </div>
+
+      {/* Character LoRA (ZIT only) */}
+      {imageWorkflow === 'zit' && (
+        <div
+          className="lyrics-field"
+          onDragOver={e => { e.preventDefault(); setLoraDragging(true) }}
+          onDragLeave={() => setLoraDragging(false)}
+          onDrop={e => {
+            e.preventDefault()
+            setLoraDragging(false)
+            const f = e.dataTransfer.files[0]
+            if (f && /\.(safetensors|pt|ckpt)$/i.test(f.name)) {
+              setLoraName(f.name)
+              setLoraTextMode(true)
+            }
+          }}
+        >
+          <label className="lyrics-label">
+            Character LoRA
+            {loraDragging && <span className="lyrics-label-hint"> — drop to set</span>}
+          </label>
+          {loras.length > 0 && !loraTextMode ? (
+            <select
+              className="lora-select"
+              value={loraName}
+              onChange={e => setLoraName(e.target.value)}
+              disabled={uploading}
+            >
+              <option value={LORA_NONE}>None</option>
+              {loras.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          ) : (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <input
+                className="project-name-input"
+                type="text"
+                placeholder="filename.safetensors (or drop file / leave blank)"
+                value={loraName === LORA_NONE ? '' : loraName}
+                onChange={e => setLoraName(e.target.value.trim() || LORA_NONE)}
+                disabled={uploading}
+              />
+              {loras.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  style={{ whiteSpace: 'nowrap', padding: '0.25rem 0.6rem', fontSize: '0.78rem' }}
+                  onClick={() => { setLoraTextMode(false); setLoraName(LORA_NONE) }}
+                  disabled={uploading}
+                >
+                  Use list
+                </button>
+              )}
+            </div>
+          )}
+          {loraName !== LORA_NONE && (
+            <div className="lora-strength-row">
+              <label className="lyrics-label-hint">Strength</label>
+              <input
+                className="lora-strength-input"
+                type="number"
+                min="0" max="2" step="0.05"
+                value={loraStrength}
+                onChange={e => setLoraStrength(e.target.value)}
+                disabled={uploading}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Video workflow */}
       <div className="lyrics-field">

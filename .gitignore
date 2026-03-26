@@ -4,6 +4,13 @@
 # Session data (user audio, images, videos — never commit)
 sessions/
 
+# User-installed ComfyUI workflows (machine-specific, installed via Manage Workflows UI)
+backend/comfyui/workflows/user/*.json
+backend/comfyui/workflows/user/*.nodemap.json
+# Keep the example stubs
+!backend/comfyui/workflows/user/FADE_t2i.example
+!backend/comfyui/workflows/user/FADE_i2v.example
+
 # Model checkpoints (large binary files — download via setup_acestep.bat)
 checkpoints/
 

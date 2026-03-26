@@ -1599,3 +1599,134 @@ button {
   cursor: not-allowed;
   pointer-events: none;
 }
+
+/* ── Setup check ─────────────────────────────────────────────────────────── */
+
+.setup-check {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.setup-check-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.setup-check-header h2 {
+  flex: 1;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.setup-loading {
+  color: var(--muted);
+  text-align: center;
+  margin-top: 3rem;
+}
+
+.setup-banner {
+  padding: .75rem 1rem;
+  border-radius: var(--radius);
+  font-size: .9rem;
+  font-weight: 500;
+  margin-bottom: 1.5rem;
+}
+
+.setup-banner--ok   { background: rgba(62,207,142,.12); color: var(--green); }
+.setup-banner--fail { background: rgba(248,113,113,.12); color: var(--red);  }
+
+.setup-section {
+  margin-bottom: 1.75rem;
+}
+
+.setup-section h3 {
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: .5rem;
+}
+
+.setup-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .55rem .75rem;
+  border-radius: var(--radius);
+  font-size: .875rem;
+  margin-bottom: .25rem;
+  background: var(--surface);
+}
+
+.setup-row--ok   .setup-row-icon { color: var(--green); }
+.setup-row--fail .setup-row-icon { color: var(--red);   }
+
+.setup-row-label { flex: 1; color: var(--text); }
+
+.setup-row-sub {
+  font-size: .75rem;
+  color: var(--muted);
+}
+
+.setup-row-link {
+  font-size: .75rem;
+  color: var(--accent-hi);
+  text-decoration: none;
+  margin-left: .25rem;
+}
+.setup-row-link:hover { text-decoration: underline; }
+
+/* ── LoRA picker ─────────────────────────────────────────────────────────── */
+
+.lora-select {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: .5rem .75rem;
+  font-size: .875rem;
+  cursor: pointer;
+}
+.lora-select:focus { outline: none; border-color: var(--accent); }
+
+.lora-strength-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-top: .4rem;
+}
+
+.lora-strength-input {
+  width: 80px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: .4rem .6rem;
+  font-size: .875rem;
+}
+.lora-strength-input:focus { outline: none; border-color: var(--accent); }
+
+.setup-dir-row {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+.setup-dir-row .project-name-input { flex: 1; }
+
+.setup-actions {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1.5rem;
+}
+
+.setup-save-msg {
+  font-size: .8rem;
+  color: var(--muted);
+}

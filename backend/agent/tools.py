@@ -742,6 +742,11 @@ async def _generate_images(session: Session, push: PushFn,
             node_map["height"]:          {"value": cfg.height},
             node_map["save"]:            {"filename_prefix": save_key},
         }
+        if "lora" in node_map and cfg.lora_name:
+            patches[node_map["lora"]] = {
+                "lora_name":      cfg.lora_name,
+                "strength_model": cfg.lora_strength,
+            }
         if cfg.image_workflow == "qie":
             if session.reference_image_path and session.reference_image_path.exists():
                 ref_fname = comfy.stage_image(
@@ -814,9 +819,6 @@ async def _generate_videos(session: Session, push: PushFn,
     elif workflow == "ltx":
         i2v_wf   = _json.load(open("backend/comfyui/workflows/ltx2_i2v.json",      encoding="utf-8"))
         node_map = _json.load(open("backend/comfyui/node_map_i2v_ltx.json"))
-    elif workflow == "humo":
-        i2v_wf   = _json.load(open("backend/comfyui/workflows/infinitetalk_humo.json", encoding="utf-8"))
-        node_map = _json.load(open("backend/comfyui/node_map_infinitetalk.json"))
     else:  # ltx_humo
         i2v_wf   = _json.load(open("backend/comfyui/workflows/ltx2_i2v_humo.json", encoding="utf-8"))
         node_map = _json.load(open("backend/comfyui/node_map_i2v.json"))
@@ -885,12 +887,11 @@ async def _generate_videos(session: Session, push: PushFn,
             audio_patch = {"audio": audio_filename}
             patches_audio_start = {node_map["audio_start"]: {"value": start_s}}
         else:
-            audio_patch = {"audio": audio_filename, "start_time": start_s,
-                           "duration": scene["frame_count"] / cfg.fps}
+            audio_patch = {"audio": audio_filename, "start_time": start_s}
             patches_audio_start = {}
 
         fc = scene["frame_count"]
-        if workflow in ("ltx_humo", "humo"):
+        if workflow == "ltx_humo":
             fc = max(fc, 81)
 
         patches = {
@@ -934,8 +935,10 @@ async def _generate_videos(session: Session, push: PushFn,
         if "humo_long_edge" in node_map:
             patches[node_map["humo_long_edge"]] = {"value": cfg.humo_resolution}
         if "it_width" in node_map:
-            it_w = 480 if cfg.orientation == "portrait" else 864
-            it_h = 864 if cfg.orientation == "portrait" else 480
+            p_w  = node_map.get("it_portrait_w", 480)
+            p_h  = node_map.get("it_portrait_h", 864)
+            it_w = p_w if cfg.orientation == "portrait" else p_h
+            it_h = p_h if cfg.orientation == "portrait" else p_w
             patches[node_map["it_width"]]  = {"value": it_w}
             patches[node_map["it_height"]] = {"value": it_h}
         if "create_video" in node_map:
