@@ -197,9 +197,9 @@ Right-click each node → **Title** and set the exact title string listed below.
 
 Optional:
 
-| Title | Node to tag |
-|---|---|
-| `FADE: Load Image` | LoadImage — reference image input (QIE-style workflows) |
+| Title | Node to tag | If omitted |
+|---|---|---|
+| `FADE: Load Image` | LoadImage — reference image input (QIE-style workflows) | Reference image is not passed to the workflow |
 
 **Video workflow — required:**
 
@@ -213,18 +213,18 @@ Optional:
 
 Optional:
 
-| Title | Node to tag |
-|---|---|
-| `FADE: Negative Prompt` | PrimitiveStringMultiline — negative text |
-| `FADE: Width` | PrimitiveInt |
-| `FADE: Height` | PrimitiveInt |
-| `FADE: Seed` | PrimitiveInt — seed value |
-| `FADE: Audio Start` | PrimitiveFloat — scene start time in seconds (omit if your audio node takes `start_time` directly) |
-| `FADE: Seed 2` | Second PrimitiveInt seed (2-pass workflows) |
-| `FADE: HuMo Seed` | HuMo sampler seed node |
-| `FADE: HuMo Long Edge` | PrimitiveInt — HuMo refinement long edge |
-| `FADE: FPS` | CreateVideo fps field |
-| `FADE: FPS Conditioning` | LTXVConditioning frame_rate field |
+| Title | Node to tag | If omitted |
+|---|---|---|
+| `FADE: Negative Prompt` | PrimitiveStringMultiline — negative text | No negative prompt is applied |
+| `FADE: Width` | PrimitiveInt | Orientation setting has no effect — workflow runs at its baked-in dimensions |
+| `FADE: Height` | PrimitiveInt | Same as above — tag both or neither |
+| `FADE: Seed` | PrimitiveInt — seed value | Seed is not set per-scene; workflow uses whatever default is in the JSON |
+| `FADE: Audio Start` | PrimitiveFloat — scene start time in seconds | Omit if your audio node accepts `start_time` directly as an input field; FADE patches it there instead |
+| `FADE: Seed 2` | Second PrimitiveInt seed (2-pass workflows) | Second pass uses its baked-in seed |
+| `FADE: HuMo Seed` | HuMo sampler seed node | HuMo pass uses its baked-in seed |
+| `FADE: HuMo Long Edge` | PrimitiveInt — HuMo refinement long edge | Final resolution setting has no effect |
+| `FADE: FPS` | CreateVideo fps field | Output FPS is not set; workflow default is used |
+| `FADE: FPS Conditioning` | LTXVConditioning frame_rate field | Frame rate conditioning is not set; workflow default is used |
 
 ### Step 2 — Export as API format
 
@@ -257,6 +257,35 @@ Sessions survive server restarts — the UI restores your last saved phase autom
 
 ---
 
-## Suno assistant
+## Write a Song — Suno / ACE-Step prompt assistant
 
-FADE includes a Suno prompt engineering assistant. A dedicated chat agent interviews you about the song you want to create and produces a complete Suno prompt package: style tags, structured lyrics with section markers and metatags, and generation notes. No audio analysis or ComfyUI involved.
+A conversational agent that interviews you about the song you want to make and produces a complete prompt package ready to paste into Suno or send directly to the local generator. No audio analysis or ComfyUI involved.
+
+Select the target platform at the top of the page:
+
+**Suno mode** — produces a Suno v5 prompt package:
+- Style tags (genre, subgenre, instrumentation, tempo, era, vocal descriptor)
+- Structured lyrics with section markers (`[Verse]`, `[Chorus]`, `[Bridge]`, etc.) and inline metatags (`[melodic guitar solo]`, `[build]`, `[whispered]`)
+- Generation notes: which style tags are doing the heavy lifting, suggested tweaks if the first gen misses, extension prompt snippet for longer songs
+
+**ACE-Step mode** — produces an ACE-Step 1.5 prompt package:
+- Caption (concise text description: genre, mood, instrumentation, energy)
+- Structured lyrics with section markers
+- Generation settings: BPM, key, time signature, duration
+
+In ACE-Step mode a **Send to Generator** button appears once the package is ready — it pre-fills the Make a Song page and opens it directly.
+
+---
+
+## Make a Song — ACE-Step 1.5 local generator
+
+Generates music locally using ACE-Step 1.5 (`acestep-v15-sft`, 60 steps). FADE manages the ACE-Step server process — it starts when you open the page and stops on exit.
+
+**ACE-Step must be installed separately** in its own virtual environment. Run `scripts/setup_acestep.bat` (or `.sh`) to create it. Set `ACESTEP_VENV_DIR` in `.env` if you install it outside the repo, and `ACESTEP_URL` if you need a port other than `8002`.
+
+The page shows a startup log while the server initialises (model load takes ~30s on first run). Once ready:
+
+1. Fill in the prompt panel — caption, optional lyrics, BPM, key, time signature, duration — or arrive pre-filled from the Write a Song page.
+2. Click **Generate**. Takes appear in the take strip as they complete.
+3. Play takes, adjust the prompt panel, generate more.
+4. Click **Use in FADE** on the selected take to send the audio and lyrics straight to the video director upload screen.
