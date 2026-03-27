@@ -81,7 +81,7 @@ def segment(
     max_s: float = 20.0,
     weights: tuple[float, float, float] | None = None,
     words: list[dict] | None = None,
-    lyric_snap_s: float = 0.8,
+    lyric_snap_s: float = 1.5,
     instrumental_gap_s: float = 4.0,
 ) -> list[SegmentResult]:
     """
@@ -139,6 +139,24 @@ def segment(
         + w_energy * _norm(energy_nov, n_frames)
         + w_beat   * _norm(bar_nov,    n_frames)
     )
+
+    # ── Boost salience at lyric phrase boundaries ─────────────────────────────
+    # Adds a fourth signal (word gap midpoints) so greedy fill-in prefers cuts
+    # that land between phrases rather than mid-phrase.  Sentence endings (.!?)
+    # get a stronger boost than mid-phrase gaps.
+    if words:
+        _pw = [w for w in words if w["end_s"] > w["start_s"] and not w["word"].startswith(('{', '('))]
+        phrase_nov = np.zeros(n_frames, dtype=np.float32)
+        for _pi in range(len(_pw) - 1):
+            gap_s = _pw[_pi + 1]["start_s"] - _pw[_pi]["end_s"]
+            if gap_s > 0.05:
+                mid_s = (_pw[_pi]["end_s"] + _pw[_pi + 1]["start_s"]) / 2.0
+                mid_f = min(n_frames - 1, int(mid_s * sr / _HOP))
+                is_sentence = _pw[_pi]["word"].rstrip().endswith(('.', '!', '?'))
+                phrase_nov[mid_f] = max(phrase_nov[mid_f], 1.0 if is_sentence else 0.5)
+        phrase_nov = gaussian_filter1d(phrase_nov, sigma=2.0)
+        salience = _norm(salience + 0.4 * _norm(phrase_nov, n_frames), n_frames)
+
     frame_times = librosa.frames_to_time(np.arange(n_frames), sr=sr, hop_length=_HOP)
     min_gap_f   = max(1, int(min_s * sr / _HOP))
 
@@ -219,7 +237,7 @@ def segment(
         })
 
     # ── Enforce max_s ─────────────────────────────────────────────────────────
-    segments = _enforce_max(segments, max_s, fps)
+    segments = _enforce_max(segments, max_s, fps, words or [])
 
     logger.info(
         "Done: %d scenes — %s",
@@ -348,29 +366,57 @@ def _greedy_peaks(salience: np.ndarray, n: int, min_gap: int) -> list[int]:
     return sorted(selected)
 
 
+def _find_split_point(start_s: float, end_s: float, words: list[dict]) -> float | None:
+    """
+    Find the best inter-word gap midpoint to split [start_s, end_s] at.
+    Prefers sentence-ending gaps (.!?) near the geometric midpoint.
+    Falls back to any inter-word gap near the midpoint.
+    Returns None if no usable gap exists within the segment.
+    """
+    clean = [w for w in words if w["end_s"] > w["start_s"] and not w["word"].startswith(('{', '('))]
+    mid = (start_s + end_s) / 2.0
+    sentence_cands: list[float] = []
+    any_cands:      list[float] = []
+    for i in range(len(clean) - 1):
+        gap_start = clean[i]["end_s"]
+        gap_end   = clean[i + 1]["start_s"]
+        if gap_end > gap_start and start_s < gap_start and gap_end < end_s:
+            gm = (gap_start + gap_end) / 2.0
+            any_cands.append(gm)
+            if clean[i]["word"].rstrip().endswith(('.', '!', '?')):
+                sentence_cands.append(gm)
+    if sentence_cands:
+        return round(min(sentence_cands, key=lambda t: abs(t - mid)), 3)
+    if any_cands:
+        return round(min(any_cands, key=lambda t: abs(t - mid)), 3)
+    return None
+
+
 def _enforce_max(
     segments: list[SegmentResult],
     max_s: float,
     fps: int,
+    words: list[dict] | None = None,
 ) -> list[SegmentResult]:
     """
-    Split any segment exceeding max_s at its midpoint.
-    Recursive — handles multiple violations. Logs a warning if a split half
-    would fall below min_s (does not error; caller sees the result).
+    Split any segment exceeding max_s at a phrase boundary when possible,
+    falling back to the geometric midpoint.
+    Recursive — handles multiple violations.
     """
     out: list[SegmentResult] = []
     for seg in segments:
         dur = seg["end_s"] - seg["start_s"]
         if dur > max_s:
+            mid = (_find_split_point(seg["start_s"], seg["end_s"], words) if words else None
+                   ) or round(seg["start_s"] + dur / 2, 3)
             logger.warning(
-                "Scene %.2f–%.2f (%.1fs) exceeds max_s=%.1f — splitting at midpoint",
-                seg["start_s"], seg["end_s"], dur, max_s,
+                "Scene %.2f–%.2f (%.1fs) exceeds max_s=%.1f — splitting at %.3fs",
+                seg["start_s"], seg["end_s"], dur, max_s, mid,
             )
-            mid = round(seg["start_s"] + dur / 2, 3)
             out.extend(_enforce_max([
                 {"start_s": seg["start_s"], "end_s": mid,          "frame_count": snap_frames(mid - seg["start_s"], fps)},
                 {"start_s": mid,            "end_s": seg["end_s"], "frame_count": snap_frames(seg["end_s"] - mid,   fps)},
-            ], max_s, fps))
+            ], max_s, fps, words))
         else:
             out.append(seg)
     return out

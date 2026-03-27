@@ -305,21 +305,54 @@ Never use comma-separated keyword lists or tag dumps. The image model and video 
 model both use LLM-based text encoders; natural language always outperforms \
 tag notation.
 
+== LYRIC ARC ==
+
+The scene data includes three lyric windows: prev_scene_lyrics (what just ended), \
+lyrics_full (this scene), and next_scene_lyrics (what comes next). \
+Read all three before writing either prompt — they form a continuous narrative.
+
+If lyrics_full begins mid-thought (no subject, sentence fragment like "know where \
+this will go"), prev_scene_lyrics shows where that thought started. Use the full \
+span to understand the emotional moment, but anchor the visual to what THIS scene's \
+words specifically mean at this point in the arc.
+
+If lyrics_full ends mid-thought, next_scene_lyrics shows the resolution — treat \
+this scene as the setup: the image catches the moment before the action lands; the \
+video shows it beginning but not completing.
+
+The visual must be traceable to what THIS specific lyric window says, read in arc \
+context — not a generic illustration of the song's overall mood or theme.
+
 == WHAT DRIVES EACH PROMPT ==
 
 LYRICS → IMAGE (what is depicted):
-  The lyrics tell you what is happening in the frame — literally or metaphorically.
-  Follow this chain:
+  The lyrics tell you what is happening in the frame. Use the specific imagery \
+  the lyrics give you — do not trade it for a generic emotional stand-in.
 
-  1. lyrics_full has a clear situation or concrete image ("she walked away in \
-     the rain", "I burned every letter you wrote") → translate it directly. \
-     Who is where, doing what, in what physical state. The lyric IS the scene.
+  If a lyric names a concrete object, action, or setting, that thing belongs in \
+  the image. "Make you iron my clothes" → show the iron, the ironing board, the \
+  clothes — the character's expression and posture carry the power dynamic. \
+  Do NOT replace specific lyric content with abstract representations of the same \
+  theme ("power pose", "confident stance", "commanding presence"). The specificity \
+  IS what makes the shot interesting. Thematic replacements produce bland images.
 
-  2. lyrics_full is a hook fragment, repeated line, or too abstract on its own \
+  Read lyrics_full in arc context (prev → this → next), then follow this chain:
+
+  1. lyrics_full has a clear situation, concrete image, or named objects/actions → \
+     render it literally and specifically. Include the named objects. Place the \
+     character in the described situation. The lyric IS the scene. \
+     Emotional subtext is carried by expression, light, and framing — not by \
+     swapping the lyric's content for a visual metaphor.
+
+  2. lyrics_full is a sentence fragment that continues from prev_scene_lyrics → \
+     read the two windows together as one thought. Identify the emotional peak \
+     of the full phrase and anchor the image at that specific beat.
+
+  3. lyrics_full is a hook fragment, repeated line, or too abstract on its own \
      ("yeah", "oh", "forever and a day", one chorus line) → use lyric_theme as \
      the visual anchor. The lyric sets tone; lyric_theme sets the subject.
 
-  3. lyrics_full is empty (instrumental) → describe environment only. \
+  4. lyrics_full is empty (instrumental) → describe environment only. \
      No character, no implied lyric content.
 
 DELIVERY → VIDEO (how the character moves):
@@ -342,7 +375,11 @@ DELIVERY → VIDEO (how the character moves):
 
 LYRICS → VIDEO (what happens in the clip):
   The image froze the lyrical moment as a still. The video animates it. \
-  Character direction (step 3) must be grounded in the lyrical content:
+  Character direction (step 3) must be grounded in the specific lyrical content:
+    - Lyric names a concrete action or object → character interacts with it. \
+      Specific is always better. "Make you iron my clothes" → she gestures \
+      toward or handles the garment; the iron is present. Do NOT replace it \
+      with a generic power move — the named object IS the action.
     - Narrative lyric ("she walked away in the rain", "I burned every letter \
       you wrote", "you reached for my hand") → character performs that action. \
       Not an approximation — the literal action, made physical and specific.
@@ -350,8 +387,9 @@ LYRICS → VIDEO (what happens in the clip):
       the action in lyric_theme. The theme tells you what is happening; \
       make it physical and visible.
     - Instrumental → no character action; environment motion only.
-  Do NOT invent generic movement that has no lyrical basis. Every character \
-  action in the video must be traceable to lyrics_full or lyric_theme.
+  Do NOT replace specific lyric content with generic emotional movement. \
+  "Striding confidently" or "standing with authority" are not actions — they \
+  are thematic stand-ins that produce bland video. Use what the lyric gives you.
 
 == IMAGE PROMPT ==
 
@@ -626,6 +664,9 @@ class Orchestrator:
                 if video_workflow == "humo" else ""
             )
 
+            prev_lw = scenes[i - 2].get("lyrics_window", "") if i > 1 else ""
+            next_lw = scenes[i].get("lyrics_window", "") if i < n else ""
+
             message = (
                 f"Write prompts for scene {i} of {n}.\n\n"
                 f"STYLE BIBLE:\n{bible_text}\n\n"
@@ -635,8 +676,10 @@ class Orchestrator:
                 f"  outfit:            {outfit_note}\n"
                 f"  establishing_shot: {establishing_note}\n"
                 f"  start_s → end_s:   {scene.get('start_s')}s → {scene.get('end_s')}s\n"
+                f"  prev_scene_lyrics: {prev_lw or '(start of song)'}\n"
                 f"  lyrics_full:       {scene.get('lyrics_full')}\n"
                 f"  lyrics_window:     {lw_note}\n"
+                f"  next_scene_lyrics: {next_lw or '(end of song)'}\n"
                 f"  lyric_theme:       {scene.get('lyric_theme')}\n"
                 f"  intonation_note:   {scene.get('intonation_note')}\n"
                 f"  energy_level:      {scene.get('energy_level')}\n"
