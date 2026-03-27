@@ -1,6 +1,16 @@
 # Environment
 .env
 
+# Machine-specific llama-swap config (copy from llama-swap-config.example.yaml)
+llama-swap.yaml
+
+# Machine-specific local launchers
+run_dev_local.bat
+run_local.bat
+
+# Built llama-swap/llama-server binaries
+tools/
+
 # Session data (user audio, images, videos — never commit)
 sessions/
 

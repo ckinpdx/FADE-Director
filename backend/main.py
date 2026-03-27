@@ -97,11 +97,12 @@ _GENERATE_PROMPTS_TRIGGERS = frozenset({
 
 class SessionEntry:
     def __init__(self, session: Session):
-        self.session      = session
-        self.orchestrator = None          # created after analysis completes
+        self.session         = session
+        self.orchestrator    = None          # created after analysis completes
         self.ws: WebSocket | None = None
-        self._status: str = "idle"        # idle | analyzing | segmenting | generating_* | exporting
+        self._status: str    = "idle"        # idle | analyzing | segmenting | generating_* | exporting
         self._bg_task: asyncio.Task | None = None
+        self._cancel_videos: bool = False    # set True to stop video batch after current scene
 
     @property
     def busy(self) -> bool:
@@ -186,8 +187,9 @@ async def list_workflows():
         {"id": "qie", "name": "Qwen Image Edit"},
     ]
     video_wfs = [
-        {"id": "ltx_humo", "name": "LTX with HuMo", "humo_resolution": True},
-        {"id": "ltx",      "name": "LTX"},
+        {"id": "ltx_humo",    "name": "LTX + HuMo",    "humo_resolution": True},
+        {"id": "ltx_humo_hq", "name": "LTX 22B + HuMo HQ", "humo_resolution": True},
+        {"id": "ltx",         "name": "LTX"},
     ]
     if user_dir.exists():
         for wf_file in sorted(user_dir.glob("*.json")):
@@ -266,7 +268,7 @@ async def create_session(
     orient = orientation or config.DEFAULT_ORIENTATION
     w, h   = _orientation_dims(orient)
     iwf  = image_workflow  if (image_workflow  in ("zit", "qie")              or (image_workflow  or "").startswith("user/")) else "zit"
-    vwf  = video_workflow  if (video_workflow  in ("ltx_humo", "ltx") or (video_workflow  or "").startswith("user/")) else "ltx_humo"
+    vwf  = video_workflow  if (video_workflow  in ("ltx_humo", "ltx_humo_hq", "ltx") or (video_workflow  or "").startswith("user/")) else "ltx_humo"
     hres  = humo_resolution if humo_resolution in (1280, 1536, 1920) else 1280
     lname = lora_name.strip() if lora_name and lora_name.strip() else None
     lstr  = lora_strength if lora_strength is not None else 0.6
@@ -448,23 +450,32 @@ _CUSTOM_NODES = [
     {"key": "custom_scripts",  "node": "SimpleMath+",               "package": "ComfyUI-Custom-Scripts"},
     {"key": "wan_experiments", "node": "WanEx_HuMoImageToVideo",    "package": "WanExperiments",
      "url": "https://github.com/drozbay/WanExperiments"},
+    {"key": "rtx_vsr",         "node": "RTXVideoSuperResolution",   "package": "ComfyUI-RTX-VideoSuperResolution"},
+    {"key": "fps_change",      "node": "ImageBatchChangeFPS",       "package": "ComfyUI-FPSChange",
+     "bundled": True},
 ]
 
 _MODELS = [
     # ZIT T2I
-    {"key": "zit_unet",    "workflow": "ZIT T2I",   "file": "z_image_turbo_bf16.safetensors"},
-    {"key": "zit_clip",    "workflow": "ZIT T2I",   "file": "qwen_3_4b.safetensors"},
-    {"key": "zit_vae",     "workflow": "ZIT T2I",   "file": "ae.safetensors"},
-    # LTX I2V + HuMo
-    {"key": "ltx_unet",    "workflow": "LTX+HuMo", "file": "ltx2-phr00tmerge-sfw-v5.safetensors"},
-    {"key": "ltx_vvae",    "workflow": "LTX+HuMo", "file": "LTX2_video_vae_bf16.safetensors"},
-    {"key": "ltx_avae",    "workflow": "LTX+HuMo", "file": "LTX2_audio_vae_bf16.safetensors"},
-    {"key": "ltx_upscale", "workflow": "LTX+HuMo", "file": "ltx-2.3-spatial-upscaler-x2-1.1.safetensors"},
-    {"key": "humo_unet",   "workflow": "LTX+HuMo", "file": "humo_17B_fp16.safetensors"},
-    {"key": "humo_lora",   "workflow": "LTX+HuMo", "file": "lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank128_bf16.safetensors"},
-    {"key": "wan_clip",    "workflow": "LTX+HuMo", "file": "umt5_xxl_fp8_e4m3fn_scaled.safetensors"},
-    {"key": "wan_vae",     "workflow": "LTX+HuMo", "file": "Wan2_1_VAE_bf16.safetensors"},
-    {"key": "whisper_enc", "workflow": "LTX+HuMo", "file": "whisper_large_v3_encoder_fp16.safetensors"},
+    {"key": "zit_unet",          "workflow": "ZIT T2I",  "file": "z_image_turbo_bf16.safetensors"},
+    {"key": "zit_clip",          "workflow": "ZIT T2I",  "file": "qwen_3_4b.safetensors"},
+    {"key": "zit_vae",           "workflow": "ZIT T2I",  "file": "ae.safetensors"},
+    # LTX I2V (shared by all three video workflows)
+    {"key": "ltx_unet",          "workflow": "LTX I2V",  "file": "ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors"},
+    {"key": "ltx_clip",          "workflow": "LTX I2V",  "file": "gemma_3_12B_it_heretic_fp8_e4m3fn.safetensors"},
+    {"key": "ltx_connectors",    "workflow": "LTX I2V",  "file": "ltx-2.3-22b-dev_embeddings_connectors.safetensors"},
+    {"key": "ltx_distill_lora",  "workflow": "LTX I2V",  "file": "ltx-2.3-22b-distilled-lora-384.safetensors"},
+    {"key": "ltx_vvae",          "workflow": "LTX I2V",  "file": "LTX23_video_vae_bf16.safetensors"},
+    {"key": "ltx_avae",          "workflow": "LTX I2V",  "file": "LTX23_audio_vae_bf16.safetensors"},
+    {"key": "ltx_upscale",       "workflow": "LTX I2V",  "file": "ltx-2.3-spatial-upscaler-x2-1.1.safetensors"},
+    # HuMo (shared by LTX+HuMo and LTX 22B HQ)
+    {"key": "humo_unet",         "workflow": "HuMo",     "file": "humo_17B_fp16.safetensors"},
+    {"key": "humo_lora",         "workflow": "HuMo",     "file": "lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank128_bf16.safetensors"},
+    {"key": "humo_face_lora",    "workflow": "HuMo",     "file": "FaceDetailerV1.safetensors"},
+    {"key": "wan_clip",          "workflow": "HuMo",     "file": "umt5_xxl_fp8_e4m3fn_scaled.safetensors"},
+    {"key": "wan_vae",           "workflow": "HuMo",     "file": "Wan2_1_VAE_bf16.safetensors"},
+    {"key": "whisper_enc",       "workflow": "HuMo",     "file": "whisper_large_v3_encoder_fp16.safetensors"},
+    {"key": "melbandroformer",   "workflow": "HuMo",     "file": "MelBandRoformer_fp16.safetensors"},
 ]
 
 _LLM_MODELS = [
@@ -512,6 +523,8 @@ async def setup_validate(comfyui_dir: str | None = None, model_dir: str | None =
             entry: dict = {"node": n["node"], "package": n["package"], "ok": False}
             if "url" in n:
                 entry["url"] = n["url"]
+            if n.get("bundled"):
+                entry["bundled"] = True
             try:
                 r = await client.get(f"{config.COMFYUI_URL}/object_info/{n['node']}")
                 entry["ok"] = r.status_code == 200
@@ -546,6 +559,25 @@ async def setup_validate(comfyui_dir: str | None = None, model_dir: str | None =
         all(v["ok"] for v in results["llm"].values())
     )
     return results
+
+
+@app.post("/setup/install-node/{key}")
+async def install_bundled_node(key: str):
+    """Copy a bundled custom node from the FADE repo into the ComfyUI custom_nodes directory."""
+    import shutil
+    node = next((n for n in _CUSTOM_NODES if n.get("key") == key and n.get("bundled")), None)
+    if not node:
+        raise HTTPException(404, f"No bundled node with key '{key}'.")
+
+    src = Path(__file__).parent / "comfyui" / "custom_nodes" / node["package"]
+    if not src.exists():
+        raise HTTPException(500, f"Bundled source not found: {src}")
+
+    dst = config.COMFYUI_DIR / "custom_nodes" / node["package"]
+    if dst.exists():
+        shutil.rmtree(dst)
+    shutil.copytree(src, dst)
+    return {"ok": True, "installed_to": str(dst)}
 
 
 @app.get("/projects")
@@ -1123,13 +1155,50 @@ async def generate_videos(
     return {"ok": True}
 
 
+@app.post("/sessions/{session_id}/generate/images/regen")
+async def regen_unapproved_images(session_id: str):
+    """
+    Regenerate all unapproved images (image_status == 'done' or 'prompts_ready').
+    Approved scenes are untouched. Fresh seeds are assigned automatically.
+    """
+    entry = _get_entry(session_id)
+    if entry.session.phase not in ("images", "videos", "done"):
+        raise HTTPException(400, "Not in image review phase.")
+    if entry.busy:
+        raise HTTPException(409, f"Session is busy ({entry._status}).")
+
+    data    = entry.session.load_prompts()
+    targets = [
+        int(k) for k, v in data["scenes"].items()
+        if v.get("image_status") in ("done", "prompts_ready")
+    ]
+    if not targets:
+        raise HTTPException(400, "No unapproved or pending scenes to regenerate.")
+
+    entry._status  = "generating_images"
+    entry._bg_task = asyncio.create_task(_run_images(entry, targets))
+    return {"ok": True, "scenes": targets}
+
+
+@app.post("/sessions/{session_id}/generate/videos/cancel")
+async def cancel_video_generation(session_id: str):
+    """Signal the video generation batch to stop after the current scene completes."""
+    entry = _get_entry(session_id)
+    if entry._status != "generating_videos":
+        raise HTTPException(400, "No video generation in progress.")
+    entry._cancel_videos = True
+    return {"ok": True}
+
+
 async def _run_videos(entry: SessionEntry, scene_numbers: list[int] | None) -> None:
     session = entry.session
     sid     = session.session_id
+    entry._cancel_videos = False
 
     try:
         from backend.agent.tools import generate_videos_batch
-        await generate_videos_batch(session, scene_numbers, entry.push)
+        await generate_videos_batch(session, scene_numbers, entry.push,
+                                    cancel_check=lambda: entry._cancel_videos)
         logger.info("[%s] Video generation complete.", sid)
         await entry.push("gen_done", {"phase": "videos"})
 

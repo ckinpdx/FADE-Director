@@ -9,6 +9,7 @@ interface CheckEntry {
   package?:  string
   url?:      string
   model?:    string
+  bundled?:  boolean
 }
 
 interface ValidateResult {
@@ -23,15 +24,38 @@ interface Props {
   onBack: () => void
 }
 
-function Row({ entry, name }: { entry: CheckEntry; name: string }) {
+function Row({ entry, name, nodeKey, onInstalled }: {
+  entry: CheckEntry; name: string; nodeKey?: string; onInstalled?: () => void
+}) {
+  const [installing, setInstalling] = useState(false)
   const label = entry.label ?? entry.file ?? entry.node ?? name
   const sub   = entry.workflow ?? entry.package ?? entry.model ?? ''
+
+  async function install() {
+    if (!nodeKey) return
+    setInstalling(true)
+    try {
+      const r = await fetch(`/setup/install-node/${nodeKey}`, { method: 'POST' })
+      if (!r.ok) throw new Error(await r.text())
+      onInstalled?.()
+    } catch (e) {
+      alert(`Install failed: ${e}`)
+    } finally {
+      setInstalling(false)
+    }
+  }
+
   return (
     <div className={`setup-row ${entry.ok ? 'setup-row--ok' : 'setup-row--fail'}`}>
       <span className="setup-row-icon">{entry.ok ? '✓' : '✗'}</span>
       <span className="setup-row-label">{label}</span>
       {sub && <span className="setup-row-sub">{sub}</span>}
-      {!entry.ok && entry.url && (
+      {!entry.ok && entry.bundled && (
+        <button className="setup-row-link" onClick={install} disabled={installing}>
+          {installing ? 'installing…' : 'install'}
+        </button>
+      )}
+      {!entry.ok && !entry.bundled && entry.url && (
         <a className="setup-row-link" href={entry.url} target="_blank" rel="noreferrer">
           install
         </a>
@@ -186,7 +210,12 @@ export function SetupCheck({ onBack }: Props) {
 
           <section className="setup-section">
             <h3>Custom Nodes</h3>
-            {Object.entries(result.nodes).map(([k, v]) => <Row key={k} name={k} entry={v} />)}
+            {Object.entries(result.nodes).map(([k, v]) => (
+              <Row key={k} name={k} entry={v}
+                nodeKey={v.bundled ? k : undefined}
+                onInstalled={runCheck}
+              />
+            ))}
           </section>
         </>
       )}

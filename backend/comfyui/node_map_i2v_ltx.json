@@ -7,5 +7,6 @@
   "height": "426",
   "ltx_seed": "1396",
   "save": "1381",
-  "negative_prompt": "1380"
+  "negative_prompt": "1380",
+  "output_fps": 50
 }

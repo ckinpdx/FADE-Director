@@ -172,6 +172,13 @@ def build_i2v_map(workflow: dict, wf_name: str) -> dict:
         if nid is not None:
             node_map[logical] = nid
             print(f"  I2V  {logical:22s} -> node {nid} ({workflow[nid]['class_type']})  [optional]")
+            # For FADE: FPS, also extract the baked-in value so _generate_videos
+            # can compute correct audio start times without knowing the workflow fps.
+            if title == "FADE: FPS":
+                fps_val = workflow[nid].get("inputs", {}).get("value")
+                if fps_val is not None:
+                    node_map["output_fps"] = int(fps_val)
+                    print(f"  I2V  {'output_fps':22s} -> {fps_val} (from FADE: FPS node value)")
         else:
             print(f"  I2V  {logical:22s} -> not present (optional, skipped at runtime)")
 
@@ -189,8 +196,9 @@ def main() -> None:
         # (workflow_file, output_map_file, builder_fn)
         ("ltx2_t2i.json",      "node_map_t2i.json",      "t2i"),
         ("qie_t2i.json",       "node_map_qie.json",       "t2i"),
-        ("ltx2_i2v_humo.json", "node_map_i2v.json",       "i2v"),
-        ("ltx2_i2v.json",      "node_map_i2v_ltx.json",   "i2v"),
+        ("ltx2_i2v_humo.json",    "node_map_i2v.json",        "i2v"),
+        ("ltx2_i2v.json",         "node_map_i2v_ltx.json",    "i2v"),
+        ("ltx2_i2v_humo_hq.json", "node_map_i2v_humo_hq.json","i2v"),
     ]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

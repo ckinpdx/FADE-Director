@@ -26,12 +26,12 @@ if exist "%VENV_DIR%\Lib\site-packages\acestep\__init__.py" (
 REM ── Create venv if it doesn't exist ───────────────────────────────────────
 if not exist "%VENV_DIR%\Scripts\python.exe" (
     call :log "Creating Python 3.11 venv at %VENV_DIR%\..."
-    set PYTHON_EXE=C:\Users\chand\AppData\Local\Programs\Python\Python311\python.exe
-    if not exist "C:\Users\chand\AppData\Local\Programs\Python\Python311\python.exe" (
+    set PYTHON_EXE=%LOCALAPPDATA%\Programs\Python\Python311\python.exe
+    if not exist "%PYTHON_EXE%" (
         call :log "Falling back to py -3.11 launcher..."
         py -3.11 -m venv "%VENV_DIR%"
     ) else (
-        "C:\Users\chand\AppData\Local\Programs\Python\Python311\python.exe" -m venv "%VENV_DIR%"
+        "%PYTHON_EXE%" -m venv "%VENV_DIR%"
     )
     if errorlevel 1 (
         call :log "ERROR: venv creation failed. Make sure Python 3.11 is installed."

@@ -8,29 +8,32 @@ interface Props {
   genBusy:          boolean
   showGenPrompts:   boolean
   showGenImages:    boolean
+  showRegenImages:  boolean
   showGenVideos:    boolean
   showExport:       boolean
   generatingImages: boolean
   generatingVideos: boolean
   exportPath:       string | null
   onGeneratePrompts: () => void
-  onGenerateImages: () => void
-  onGenerateVideos: () => void
-  onExport:         () => void
-  onApproveImage:   (index: number) => void
-  onApproveVideo:   (index: number) => void
-  onUnapproveImage: (index: number) => void
-  onUnapproveVideo: (index: number) => void
+  onGenerateImages:  () => void
+  onRegenImages:     () => void
+  onGenerateVideos:  () => void
+  onCancelVideos:    () => void
+  onExport:          () => void
+  onApproveImage:    (index: number) => void
+  onApproveVideo:    (index: number) => void
+  onUnapproveImage:  (index: number) => void
+  onUnapproveVideo:  (index: number) => void
 }
 
 export function Storyboard({
   scenes, sessionId, orientation, genBusy,
-  showGenPrompts, showGenImages, showGenVideos, showExport,
+  showGenPrompts, showGenImages, showRegenImages, showGenVideos, showExport,
   generatingImages, generatingVideos, exportPath,
-  onGeneratePrompts, onGenerateImages, onGenerateVideos, onExport,
+  onGeneratePrompts, onGenerateImages, onRegenImages, onGenerateVideos, onCancelVideos, onExport,
   onApproveImage, onApproveVideo, onUnapproveImage, onUnapproveVideo,
 }: Props) {
-  const hasBanner = showGenPrompts || showGenImages || showGenVideos || showExport || generatingImages || generatingVideos || exportPath
+  const hasBanner = showGenPrompts || showGenImages || showRegenImages || showGenVideos || showExport || generatingImages || generatingVideos || exportPath
 
   return (
     <div className="storyboard-panel">
@@ -48,6 +51,9 @@ export function Storyboard({
             <div className="gen-banner-running">
               <span className="spinner" />
               <span>Generating videos…</span>
+              <button className="gen-btn gen-btn--cancel" onClick={onCancelVideos}>
+                Stop after this scene
+              </button>
             </div>
           )}
           {showGenPrompts && (
@@ -66,6 +72,15 @@ export function Storyboard({
               onClick={onGenerateImages}
             >
               Generate Images →
+            </button>
+          )}
+          {showRegenImages && (
+            <button
+              className="gen-btn gen-btn--images"
+              disabled={genBusy}
+              onClick={onRegenImages}
+            >
+              Regen Unapproved →
             </button>
           )}
           {showGenVideos && (

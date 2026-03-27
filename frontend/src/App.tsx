@@ -31,6 +31,10 @@ function anyImageDone(scenes: Map<number, SceneData>): boolean {
   return [...scenes.values()].some(s => s.image_status === 'done' || s.image_status === 'approved')
 }
 
+function anyImageUnapproved(scenes: Map<number, SceneData>): boolean {
+  return [...scenes.values()].some(s => s.image_status === 'done' || s.image_status === 'prompts_ready')
+}
+
 function allImagesApproved(scenes: Map<number, SceneData>): boolean {
   if (scenes.size === 0) return false
   return [...scenes.values()].every(s => s.image_status === 'approved')
@@ -285,10 +289,28 @@ export default function App() {
     await fetch(`/sessions/${sessionId}/scenes/${index}/approve/video`, { method: 'DELETE' })
   }
 
+  async function regenImages() {
+    if (!sessionId || genBusy) return
+    setGenBusy(true)
+    try {
+      const r = await fetch(`/sessions/${sessionId}/generate/images/regen`, { method: 'POST' })
+      if (!r.ok) throw new Error(`Regen failed: ${r.status}`)
+    } catch (e) {
+      setMessages(prev => [...prev, { id: nextId(), role: 'error', content: String(e) }])
+      setGenBusy(false)
+    }
+  }
+
+  async function cancelVideos() {
+    if (!sessionId) return
+    await fetch(`/sessions/${sessionId}/generate/videos/cancel`, { method: 'POST' })
+  }
+
   // ── Generation button visibility ──────────────────────────────────────────
 
   const showGenPrompts   = scenes.size > 0 && !allHavePrompts(scenes) && !anyGeneratingImages(scenes) && !anyGeneratingVideos(scenes)
   const showGenImages    = allHavePrompts(scenes) && !anyImageDone(scenes) && !anyGeneratingImages(scenes)
+  const showRegenImages  = anyImageUnapproved(scenes) && !anyGeneratingImages(scenes) && !anyGeneratingVideos(scenes) && !genBusy
   const showGenVideos    = allImagesApproved(scenes) && !anyVideoDone(scenes) && !anyGeneratingVideos(scenes)
   const showExport       = allVideosApproved(scenes) && !exportPath
   const generatingImages = anyGeneratingImages(scenes)
@@ -385,6 +407,7 @@ export default function App() {
         genBusy={genBusy || busy}
         showGenPrompts={showGenPrompts}
         showGenImages={showGenImages}
+        showRegenImages={showRegenImages}
         showGenVideos={showGenVideos}
         showExport={showExport}
         generatingImages={generatingImages}
@@ -392,7 +415,9 @@ export default function App() {
         exportPath={exportPath}
         onGeneratePrompts={generatePrompts}
         onGenerateImages={generateImages}
+        onRegenImages={regenImages}
         onGenerateVideos={generateVideos}
+        onCancelVideos={cancelVideos}
         onExport={exportFinal}
         onApproveImage={onApproveImage}
         onApproveVideo={onApproveVideo}

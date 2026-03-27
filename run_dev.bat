@@ -5,28 +5,19 @@ REM Requires: uv (https://github.com/astral-sh/uv) and Node.js
 cd /d "%~dp0"
 
 REM ── Add uv to PATH ────────────────────────────────────────────────────────────
-SET PATH=%APPDATA%\Python\Python314\Scripts;%LOCALAPPDATA%\Programs\uv;%PATH%
+SET PATH=%LOCALAPPDATA%\Programs\uv;%PATH%
 
 if not exist .env (
     echo WARNING: .env not found. Copy .env.example to .env and fill in your paths.
 )
 
-REM ── 1. llama-swap ────────────────────────────────────────────────────────────
-echo Checking llama-swap (port 8000)...
+REM ── 1. LLM server ────────────────────────────────────────────────────────────
+call "%~dp0start_llm.bat"
 powershell -Command "try { (New-Object Net.Sockets.TcpClient('127.0.0.1',8000)).Close(); exit 0 } catch { exit 1 }" >nul 2>&1
 if errorlevel 1 (
-    echo Starting llama-swap...
-    schtasks /run /tn "\openclaw\llama-swap" >nul 2>&1
-    echo Waiting for llama-swap to be ready...
-    :wait_llm
-    powershell -Command "try { (New-Object Net.Sockets.TcpClient('127.0.0.1',8000)).Close(); exit 0 } catch { exit 1 }" >nul 2>&1
-    if errorlevel 1 (
-        timeout /t 1 /nobreak >nul
-        goto wait_llm
-    )
-    echo llama-swap ready.
-) else (
-    echo llama-swap already running.
+    echo ERROR: LLM server not reachable on port 8000. Check start_llm.bat.
+    pause
+    exit /b 1
 )
 
 REM ── 2. Python venv (uv) ───────────────────────────────────────────────────────

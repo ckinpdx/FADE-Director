@@ -26,10 +26,21 @@ All inference is local. No cloud services required.
 ### Software
 - Python 3.11+
 - Node.js 18+
+- [uv](https://github.com/astral-sh/uv) — Python environment manager (`winget install astral-sh.uv`)
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI) running at `http://127.0.0.1:8188`
-- [llama-swap](https://github.com/mostlygeek/llama-swap) running at `http://127.0.0.1:8000` (requires llama-server compiled from source for Omni `--mmproj` support) — see `llama-swap-config.example.yaml` for a reference config
+- An OpenAI-compatible LLM server on port 8000 — see **LLM server setup** below
 - [Demucs](https://github.com/facebookresearch/demucs) — installed automatically via `requirements.txt`
 - [stable-ts](https://github.com/jianfch/stable-ts) — installed automatically via `requirements.txt`; downloads Whisper large-v3 on first run
+
+### LLM server setup
+
+FADE requires an OpenAI-compatible LLM server on port 8000. The recommended stack is **llama-swap + llama-server**:
+
+1. Run `scripts\build_llama.bat` — builds `llama-server.exe` and `llama-swap.exe` from source into `tools\`. Requires Git, CMake, CUDA Toolkit, and Go. Skips anything already on PATH.
+2. Copy `llama-swap-config.example.yaml` to `llama-swap.yaml` and fill in your model paths.
+3. `start_llm.bat` (called automatically by `run.bat` / `run_dev.bat`) starts llama-swap using `tools\llama-swap.exe` and `llama-swap.yaml`.
+
+If you use a different server (Ollama, LM Studio, llama.cpp directly), replace `start_llm.bat` with whatever starts your server on port 8000.
 
 ### LLM models (via llama-swap)
 - `qwen3.5-35b` — main conversational agent (Qwen3.5-35B-A3B Q4_K_M recommended)
@@ -51,17 +62,24 @@ All inference is local. No cloud services required.
 
 **Video workflows — choose one per session:**
 
-*LTX with HuMo* (default) and *LTX only*:
-- `diffusion_models/ltx2-phr00tmerge-sfw-v5.safetensors` — LTX-2 checkpoint
-- `vae/LTX2_video_vae_bf16.safetensors` + `vae/LTX2_audio_vae_bf16.safetensors`
+Shared by all three video workflows (LTX 2.3 22B stack):
+- `diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors`
+- `clip/gemma_3_12B_it_heretic_fp8_e4m3fn.safetensors`
+- `diffusion_models/ltx-2.3-22b-dev_embeddings_connectors.safetensors`
+- `loras/ltx-2.3-22b-distilled-lora-384.safetensors`
+- `vae/LTX23_video_vae_bf16.safetensors` + `vae/LTX23_audio_vae_bf16.safetensors`
 - `latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors`
 
-*LTX with HuMo* only (HuMo refinement pass):
+*LTX + HuMo* and *LTX 22B + HuMo HQ* (HuMo refinement pass):
 - `diffusion_models/humo_17B_fp16.safetensors`
 - `loras/lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank128_bf16.safetensors`
+- `loras/FaceDetailerV1.safetensors`
 - `clip/umt5_xxl_fp8_e4m3fn_scaled.safetensors` — Wan2.1 CLIP
 - `vae/Wan2_1_VAE_bf16.safetensors`
 - `clip/whisper_large_v3_encoder_fp16.safetensors`
+- `MelBandRoformer_fp16.safetensors`
+
+*LTX 22B + HuMo HQ* additionally uses RTX Video Super Resolution (NVIDIA driver feature, no model file required).
 
 ### Required ComfyUI custom nodes
 
@@ -136,7 +154,7 @@ SCENE_MAX_SECONDS=20
 
 **Subsequent runs:** double-click `run.bat` for a faster start — skips all installs, just builds the frontend and starts the backend.
 
-Both scripts start llama-swap automatically if it isn't already running (via Windows Scheduled Task).
+Both scripts call `start_llm.bat` automatically before starting the backend. By default this starts llama-swap from `tools\llama-swap.exe`. Replace `start_llm.bat` with your own server start command if needed.
 
 Open `http://localhost:8001`.
 
@@ -159,7 +177,7 @@ Set at upload time in the UI — these are locked for the lifetime of the sessio
 | Orientation | Landscape, Portrait |
 | Image Workflow | ZIT, Qwen Image Edit, any installed user workflow |
 | Character LoRA | Any `.safetensors` in `COMFYUI_MODEL_DIR/loras/` — optional, with configurable strength. Can also be set by dropping a file onto the LoRA field. |
-| Video Workflow | LTX with HuMo, LTX, any installed user workflow |
+| Video Workflow | LTX + HuMo, LTX 22B + HuMo HQ, LTX, any installed user workflow |
 | Final Resolution | 1280 / 1536 / 1920 (long edge, LTX with HuMo only) |
 
 ---

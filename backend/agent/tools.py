@@ -634,10 +634,16 @@ async def _set_scene_prompts(session: Session, push: PushFn,
         lw_clean = lw.strip()
         video_prompt = video_prompt.rstrip().rstrip('.') + f' The character delivers the words "{lw_clean}"'
 
+    # If the scene already has a generated image (status=done), revert to
+    # prompts_ready so the Regen Unapproved button picks it up in the next pass.
+    # Approved scenes are left as-is — the user explicitly kept that image.
+    current_status = scene.get("image_status", "planned")
+    new_status = "prompts_ready" if current_status != "approved" else "approved"
+
     session.update_scene(scene_index, {
         "image_prompt":   image_prompt,
         "video_prompt":   video_prompt,
-        "image_status":   "prompts_ready",
+        "image_status":   new_status,
     })
     await push("scene_update", {
         "scene_index": scene_index,
@@ -806,7 +812,8 @@ async def _generate_images(session: Session, push: PushFn,
 
 async def _generate_videos(session: Session, push: PushFn,
                            scene_numbers: list[int] | None = None,
-                           workflow: str = "ltx_humo") -> str:
+                           workflow: str = "ltx_humo",
+                           cancel_check=None) -> str:
     import json as _json
     from backend.comfyui.patch import apply
     from backend.comfyui import client as comfy
@@ -817,10 +824,13 @@ async def _generate_videos(session: Session, push: PushFn,
         i2v_wf   = _json.load(open(f"backend/comfyui/workflows/user/{stem}.json",         encoding="utf-8"))
         node_map = _json.load(open(f"backend/comfyui/workflows/user/{stem}.nodemap.json"))
     elif workflow == "ltx":
-        i2v_wf   = _json.load(open("backend/comfyui/workflows/ltx2_i2v.json",      encoding="utf-8"))
+        i2v_wf   = _json.load(open("backend/comfyui/workflows/ltx2_i2v.json",         encoding="utf-8"))
         node_map = _json.load(open("backend/comfyui/node_map_i2v_ltx.json"))
+    elif workflow == "ltx_humo_hq":
+        i2v_wf   = _json.load(open("backend/comfyui/workflows/ltx2_i2v_humo_hq.json", encoding="utf-8"))
+        node_map = _json.load(open("backend/comfyui/node_map_i2v_humo_hq.json"))
     else:  # ltx_humo
-        i2v_wf   = _json.load(open("backend/comfyui/workflows/ltx2_i2v_humo.json", encoding="utf-8"))
+        i2v_wf   = _json.load(open("backend/comfyui/workflows/ltx2_i2v_humo.json",    encoding="utf-8"))
         node_map = _json.load(open("backend/comfyui/node_map_i2v.json"))
     sb       = data.get("style_bible", {})
     cfg      = session.config
@@ -868,6 +878,10 @@ async def _generate_videos(session: Session, push: PushFn,
         acc += data["scenes"][k]["frame_count"] / cfg.fps
 
     for i, n in enumerate(targets, 1):
+        if cancel_check and cancel_check():
+            await push("status", {"message": "Video generation cancelled — stopping after current scene."})
+            break
+
         scene = data["scenes"].get(str(n))
         if not scene or not scene.get("image_path"):
             continue
@@ -1175,8 +1189,10 @@ _DISPATCH = {
 async def generate_images_batch(session: Session, scene_numbers: list[int] | None, push: PushFn) -> None:
     await _generate_images(session=session, push=push, scene_numbers=scene_numbers)
 
-async def generate_videos_batch(session: Session, scene_numbers: list[int] | None, push: PushFn) -> None:
-    await _generate_videos(session=session, push=push, scene_numbers=scene_numbers, workflow=session.config.video_workflow)
+async def generate_videos_batch(session: Session, scene_numbers: list[int] | None, push: PushFn,
+                                cancel_check=None) -> None:
+    await _generate_videos(session=session, push=push, scene_numbers=scene_numbers,
+                           workflow=session.config.video_workflow, cancel_check=cancel_check)
 
 
 async def dispatch(
