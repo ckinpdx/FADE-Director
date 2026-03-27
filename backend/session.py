@@ -45,7 +45,7 @@ class SessionConfig:
     fps:           int   = 25
     orientation:   str   = "landscape"  # portrait | landscape
     scene_min_s:   float = 3.0
-    scene_max_s:   float = 20.0
+    scene_max_s:   float = 10.0
     image_workflow:  str        = "zit"        # zit | qie — set at session creation
     video_workflow:  str        = "ltx_humo"   # ltx_humo | ltx — set at session creation
     humo_resolution: int        = 1280         # HuMo long-edge for landscape (1280 | 1536 | 1920)

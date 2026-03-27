@@ -52,4 +52,4 @@ ACESTEP_VENV_DIR = _get("ACESTEP_VENV_DIR", "./acestep_venv")
 DEFAULT_ORIENTATION = _get("DEFAULT_ORIENTATION", "landscape")  # portrait | landscape
 DEFAULT_FPS         = int(_get("DEFAULT_FPS",  "25"))
 SCENE_MIN_SECONDS   = float(_get("SCENE_MIN_SECONDS", "3"))
-SCENE_MAX_SECONDS   = float(_get("SCENE_MAX_SECONDS", "20"))
+SCENE_MAX_SECONDS   = float(_get("SCENE_MAX_SECONDS", "10"))

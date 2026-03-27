@@ -136,7 +136,7 @@ SESSION_DIR=./sessions
 DEFAULT_ORIENTATION=landscape   # portrait | landscape
 DEFAULT_FPS=25
 SCENE_MIN_SECONDS=3
-SCENE_MAX_SECONDS=20
+SCENE_MAX_SECONDS=10
 ```
 
 **Output dimensions by workflow and orientation:**
