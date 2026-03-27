@@ -408,6 +408,14 @@ by the pipeline. Do not repeat it. Write as if the character is already known.
 Structure: shot type + subject position → specific location environment and \
 surfaces → light quality and direction → one held detail the video opens on.
 
+EXPRESSION — physical descriptors only: \
+Never describe what an expression means or implies. Describe what is physically \
+visible — eye direction, brow position, lip state, jaw position. \
+Wrong: "a knowing look", "quiet authority", "her eyes already done waiting", \
+       "an expression of contempt", "cold confidence". \
+Right: "gaze directed down and left, brow flat, lips slightly parted, jaw relaxed". \
+The image model renders geometry, not interior states.
+
 CLOTHING: Use the outfit from the scene data verbatim or closely paraphrased. \
 Do NOT invent clothing. A missing clothing description renders nude — hard requirement.
 
