@@ -904,7 +904,14 @@ async def _generate_videos(session: Session, push: PushFn,
             audio_patch = {"audio": audio_filename, "start_time": start_s}
             patches_audio_start = {}
 
-        fc = scene["frame_count"]
+        # If the workflow generates at a different fps than the session (e.g. HQ
+        # workflow generates LTX at 50fps while session frame_counts are at cfg.fps),
+        # rescale to the correct frame count for this workflow's generation fps.
+        gen_fps = node_map.get("generation_fps", cfg.fps)
+        if gen_fps != cfg.fps:
+            fc = snap_frames(scene["frame_count"] / cfg.fps, gen_fps)
+        else:
+            fc = scene["frame_count"]
         if workflow == "ltx_humo":
             fc = max(fc, 81)
 

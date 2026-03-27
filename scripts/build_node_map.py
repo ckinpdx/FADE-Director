@@ -52,8 +52,12 @@ I2V workflow portability (LTX+HuMo and LTX I2V):
       "FADE: Seed 2"            — second PrimitiveInt/RandomNoise seed
       "FADE: HuMo Seed"         — ClownsharKSampler_Beta (HuMo pass)
       "FADE: HuMo Long Edge"    — PrimitiveInt (HuMo refinement long edge)
-      "FADE: FPS"               — CreateVideo fps field
+      "FADE: FPS"               — CreateVideo fps field (output fps)
       "FADE: FPS Conditioning"  — LTXVConditioning frame_rate field
+      "FADE: Generation FPS"    — PrimitiveInt — LTX generation fps when it differs
+                                  from output fps (e.g. 50fps gen → 25fps output via
+                                  deinterpolation). Omit if generation and output fps
+                                  are the same.
 
     Optional titles that are absent are silently skipped at runtime.
     Re-run this script any time you update or rebuild a workflow file.
@@ -103,6 +107,7 @@ I2V_OPTIONAL_TITLES = {
     "FADE: HuMo Long Edge":   "humo_long_edge",    # PrimitiveInt
     "FADE: FPS":              "create_video",      # CreateVideo fps
     "FADE: FPS Conditioning": "ltxv_conditioning", # LTXVConditioning frame_rate
+    "FADE: Generation FPS":   "generation_fps_node", # PrimitiveInt — LTX generation fps (if differs from output)
 }
 
 
@@ -179,6 +184,11 @@ def build_i2v_map(workflow: dict, wf_name: str) -> dict:
                 if fps_val is not None:
                     node_map["output_fps"] = int(fps_val)
                     print(f"  I2V  {'output_fps':22s} -> {fps_val} (from FADE: FPS node value)")
+            if title == "FADE: Generation FPS":
+                gen_val = workflow[nid].get("inputs", {}).get("value")
+                if gen_val is not None:
+                    node_map["generation_fps"] = int(gen_val)
+                    print(f"  I2V  {'generation_fps':22s} -> {gen_val} (from FADE: Generation FPS node value)")
         else:
             print(f"  I2V  {logical:22s} -> not present (optional, skipped at runtime)")
 
